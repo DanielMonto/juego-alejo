@@ -109,10 +109,13 @@ function nuevaRondaRacha(){
   var nuevoIdx=getNivelRacha(rachaRacha);
   if(nuevoIdx!==rachaNivelIdx){
     rachaNivelIdx=nuevoIdx;
-    var niv=RACHA_NIVELES[nuevoIdx];
-    cfgActual={maxRes:niv.maxRes, pisosMax:niv.pisosMax, mats:niv.mats, tnt:niv.tnt, tema:niv.tema};
-    toast('Nivel: '+niv.nombre+'!');
+    toast('Nivel: '+RACHA_NIVELES[nuevoIdx].nombre+'!');
   }
+  // Mundo random por ronda (del nivel actual o inferior)
+  var niv=RACHA_NIVELES[rachaNivelIdx];
+  var mundoIdx=rnd(0, Math.min(rachaNivelIdx, MUNDOS.length-1));
+  var mu=MUNDOS[mundoIdx];
+  cfgActual={maxRes:Math.max(niv.maxRes,getMaxRes()), pisosMax:niv.pisosMax, mats:mu.mats, tnt:niv.tnt, tema:mu.tema};
   var niv=RACHA_NIVELES[rachaNivelIdx];
   generarOperacion(Math.max(cfgActual.maxRes, getMaxRes()), getModoOp());
   pintarProblema(); colocarEscena(); fase='aim';
@@ -203,9 +206,12 @@ function colocarEscena(){
   dashUsado=false; bombaUsada=false; birdBounced=false; rondaResuelta=false;
   var opciones=generarOpciones(estado.resultado);
   pigs=[]; blocks=[];
-  particulas=[]; explosiones=[]; rastro=[];
+  particulas=[]; explosiones=[]; rastro=[]; obstaculos=[];
   estrellasFondo=[];
   if(cfgActual.tema==='noche'){ for(var s=0;s<40;s++) estrellasFondo.push({x:Math.random()*W,y:Math.random()*groundY*0.9,r:Math.random()*1.8+0.6}); }
+
+  // Obstaculos especiales segun mundo
+  generarObstaculosMundo();
 
   // Elegir template de nivel aleatorio
   var template=rnd(0,5);
@@ -218,6 +224,52 @@ function colocarEscena(){
   else if(template===3) nivelMuralla(opciones,pr,u,ww,bh);
   else if(template===4) nivelMixto(opciones,pr,u,ww,bh);
   else nivelTrinchera(opciones,pr,u,ww,bh);
+}
+
+/* ---- Obstaculos por mundo ---- */
+function generarObstaculosMundo(){
+  var tema=cfgActual.tema;
+  var midX=W*0.38, midY=groundY*0.5;
+
+  if(tema==='desierto'){
+    // Remolinos de arena que empujan al pajaro hacia arriba
+    obstaculos.push({tipo:'viento',x:W*(0.3+Math.random()*0.15),y:groundY*0.6,w:W*0.08,h:groundY*0.5,
+      fx:0,fy:-0.15,color:'#d4a84488',activo:true});
+    // Rocas en el camino que rebotan
+    if(Math.random()>0.4) obstaculos.push({tipo:'rebote',x:W*(0.35+Math.random()*0.1),y:groundY-Math.min(W,H)*0.08,
+      r:Math.min(W,H)*0.035,color:'#c9a43c',borde:'#8a6d1f',activo:true});
+  }
+  else if(tema==='nieve'){
+    // Bloques de hielo resbalosos que rebotan fuerte
+    var iceY=groundY*(0.4+Math.random()*0.25);
+    obstaculos.push({tipo:'rebote',x:W*(0.32+Math.random()*0.12),y:iceY,
+      r:Math.min(W,H)*0.04,color:'#b8e8f8',borde:'#6fb8d8',fuerza:1.0,activo:true});
+    if(Math.random()>0.5) obstaculos.push({tipo:'rebote',x:W*(0.42+Math.random()*0.08),y:iceY-Math.min(W,H)*0.1,
+      r:Math.min(W,H)*0.03,color:'#dff6ff',borde:'#9fd8f0',fuerza:0.9,activo:true});
+  }
+  else if(tema==='volcan'){
+    // Corrientes de lava caliente que empujan hacia arriba
+    obstaculos.push({tipo:'viento',x:W*(0.3+Math.random()*0.2),y:groundY-Math.min(W,H)*0.05,w:W*0.06,h:Math.min(W,H)*0.15,
+      fx:0,fy:-0.25,color:'#ff5a1f44',activo:true});
+    // Mas TNT natural del volcan (ya se maneja en config.tnt)
+  }
+  else if(tema==='playa'){
+    // Ola movil que empuja al pajaro
+    var olaY=groundY*(0.55+Math.random()*0.2);
+    obstaculos.push({tipo:'rebote',x:W*0.35,y:olaY,r:Math.min(W,H)*0.04,
+      color:'#5cb8e8',borde:'#3a8abf',fuerza:0.7,activo:true,
+      movX:1.5,limIzq:W*0.25,limDer:W*0.45});
+  }
+  else if(tema==='noche'){
+    // Portal que teletransporta el pajaro a otra posicion
+    var pX1=W*(0.3+Math.random()*0.1), pY1=groundY*(0.4+Math.random()*0.2);
+    var pX2=W*(0.5+Math.random()*0.15), pY2=groundY*(0.3+Math.random()*0.2);
+    obstaculos.push({tipo:'portal',x:pX1,y:pY1,r:Math.min(W,H)*0.03,
+      destX:pX2,destY:pY2,color:'#7c5cff',activo:true});
+    obstaculos.push({tipo:'portal',x:pX2,y:pY2,r:Math.min(W,H)*0.025,
+      destX:pX1,destY:pY1,color:'#ff5fa2',activo:true});
+  }
+  // Pradera: sin obstaculos especiales (tutorial)
 }
 
 function addPig(x,y,num,correcto,pr){

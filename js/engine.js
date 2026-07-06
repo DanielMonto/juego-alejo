@@ -3,7 +3,7 @@
 ============================================================ */
 
 var cv,ctx,W,H,groundY,anchor,raf=null;
-var bird,pigs,blocks,particulas,estrellasFondo=[],explosiones=[],rastro=[];
+var bird,pigs,blocks,particulas,estrellasFondo=[],explosiones=[],rastro=[],obstaculos=[];
 var fase='aim', aiming=false, tAnim=0, dashActivo=0, birdBounced=false;
 var K=0.26, G, MAXPULL;
 
@@ -16,6 +16,44 @@ function tumbar(b,fromX){ b.cayendo=true; b.vx=(b.x>=fromX?1:-1)*(Math.random()*
 function sombra(hex,amt){ try{ var c=hex.replace('#',''); if(c.length===3) c=c[0]+c[0]+c[1]+c[1]+c[2]+c[2]; var r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);
   r=Math.max(0,Math.min(255,r+amt)); g=Math.max(0,Math.min(255,g+amt)); b=Math.max(0,Math.min(255,b+amt)); return 'rgb('+r+','+g+','+b+')'; }catch(e){ return hex; } }
 function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function dibujarObstaculo(o){
+  if(!o.activo) return;
+  ctx.save(); ctx.translate(o.x,o.y);
+  if(o.tipo==='rebote'){
+    // Roca/burbuja que rebota
+    ctx.fillStyle=o.color||'#8a929c'; ctx.strokeStyle=o.borde||'#5c636b'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(0,0,o.r||o.w*0.5,0,7); ctx.fill(); ctx.stroke();
+    // Flechitas indicando rebote
+    ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(-o.r*0.25,-o.r*0.25,o.r*0.3,0,7); ctx.fill();
+  } else if(o.tipo==='viento'){
+    // Zona de viento con flechas
+    ctx.globalAlpha=0.25+0.15*Math.sin(tAnim*0.08);
+    ctx.fillStyle=o.color||'#ffe14d';
+    ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
+    ctx.globalAlpha=0.6;
+    ctx.fillStyle='#fff'; ctx.font='bold '+Math.floor(o.h*0.4)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(o.fx>0?'>>>':o.fx<0?'<<<':o.fy<0?'^^^':'vvv',0,0);
+    ctx.globalAlpha=1;
+  } else if(o.tipo==='lento'){
+    // Zona pegajosa (arena, lodo)
+    ctx.globalAlpha=0.35;
+    ctx.fillStyle=o.color||'#c9a43c';
+    ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
+    ctx.globalAlpha=1;
+    // Puntos de textura
+    ctx.fillStyle='rgba(0,0,0,.15)';
+    for(var p=0;p<6;p++) ctx.fillRect(-o.w*0.3+p*o.w*0.12,-o.h*0.1,o.w*0.06,o.h*0.06);
+  } else if(o.tipo==='portal'){
+    // Portal brillante
+    ctx.fillStyle=o.color||'#7c5cff'; ctx.globalAlpha=0.5+0.3*Math.sin(tAnim*0.1);
+    ctx.beginPath(); ctx.arc(0,0,o.r||20,0,7); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.globalAlpha=0.8;
+    ctx.beginPath(); ctx.arc(0,0,(o.r||20)*0.6,0,7); ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+  ctx.restore();
+}
 
 function explota(x,y,size){ size=size||Math.min(W,H)*0.12;
   explosiones.push({x:x,y:y,t:0,max:22,size:size});
@@ -31,6 +69,31 @@ function actualizar(){
   if(fase==='fly'){ bird.x+=bird.vx; bird.y+=bird.vy; bird.vy+=G; bird.angle=Math.atan2(bird.vy,bird.vx);
     rastro.push({x:bird.x,y:bird.y}); if(rastro.length>16) rastro.shift(); if(dashActivo>0) dashActivo--;
     var pm=paramsPajaro(pajaroSel);
+    // Obstaculos de mundo
+    for(var ob=0;ob<obstaculos.length;ob++){
+      var o=obstaculos[ob]; if(!o.activo) continue;
+      var odx=bird.x-o.x, ody=bird.y-o.y;
+      var odist=Math.sqrt(odx*odx+ody*ody);
+      var orad=(o.r||o.w*0.5)+bird.r;
+      if(odist<orad){
+        if(o.tipo==='rebote'){ // Rebota al pajaro
+          var nx=odx/odist, ny=ody/odist;
+          var dot=bird.vx*nx+bird.vy*ny;
+          bird.vx-=2*dot*nx*(o.fuerza||0.8); bird.vy-=2*dot*ny*(o.fuerza||0.8);
+          bird.x=o.x+nx*orad; bird.y=o.y+ny*orad;
+          sonidoToque(3);
+        } else if(o.tipo==='viento'){ // Empuja al pajaro
+          bird.vx+=o.fx||0; bird.vy+=o.fy||0;
+        } else if(o.tipo==='lento'){ // Frena al pajaro
+          bird.vx*=(o.fuerza||0.7); bird.vy*=(o.fuerza||0.7);
+        } else if(o.tipo==='portal'){ // Teletransporta
+          if(o.destX!==undefined){ bird.x=o.destX; bird.y=o.destY; }
+        }
+      }
+      // Obstaculos moviles
+      if(o.movX){ o.x+=o.movX; if(o.x>o.limDer||o.x<o.limIzq) o.movX*=-1; }
+      if(o.movY){ o.y+=o.movY; if(o.y>o.limAbajo||o.y<o.limArriba) o.movY*=-1; }
+    }
     // Despues de rebotar, el pajaro no interactua con nada
     if(!birdBounced){
       // BOMBA: explota al primer contacto
@@ -81,6 +144,7 @@ function actualizar(){
 
 /* ============ DIBUJO ============ */
 function dibujar(){ ctx.clearRect(0,0,W,H); fondoTema(cfgActual.tema);
+  for(var ob=0;ob<obstaculos.length;ob++) dibujarObstaculo(obstaculos[ob]);
   for(var i=0;i<blocks.length;i++){ dibujarBloque(blocks[i]); }
   for(var j=0;j<pigs.length;j++){ dibujarPig(pigs[j]); }
   dibujarResorteraBack(); if(fase==='aim') dibujarTrayectoria(); dibujarRastro(); dibujarPajaro(); dibujarResorteraFront();
