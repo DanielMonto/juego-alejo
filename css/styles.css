@@ -18,7 +18,6 @@ h2 { font-size:clamp(20px,5.5vw,34px); color:#fff; margin:6px 0; text-shadow:2px
   box-shadow:0 6px 0 rgba(0,0,0,.22),0 8px 16px rgba(0,0,0,.18); transition:transform .08s,box-shadow .08s; min-width:170px; }
 .btn:active { transform:translateY(5px); box-shadow:0 1px 0 rgba(0,0,0,.22); }
 .btn.aventura { background:linear-gradient(#ff9a3c,#ff6a00); }
-.btn.libre { background:linear-gradient(#3ec7ff,#1e8fe0); }
 .btn.medallero { background:linear-gradient(#ffd23f,#ffab00); }
 .btn.perso { background:linear-gradient(#ff5fa2,#ff2e79); }
 .btn.play { background:linear-gradient(#3ddc84,#16a34a); font-size:clamp(20px,5vw,32px); padding:18px 34px; }
@@ -190,8 +189,10 @@ h2 { font-size:clamp(20px,5.5vw,34px); color:#fff; margin:6px 0; text-shadow:2px
   display:none; align-items:center; justify-content:center; gap:clamp(6px,2vw,12px);
   padding:5px 10px; pointer-events:none; }
 .racha-vidas { display:flex; gap:2px; flex-shrink:0; }
-.racha-vida { font-size:clamp(16px,4vw,22px); color:#e11d48; filter:drop-shadow(0 1px 2px rgba(0,0,0,.3)); }
-.racha-vida.muerta { opacity:.25; }
+.racha-vida { font-size:clamp(16px,4vw,22px); color:#e11d48; filter:drop-shadow(0 1px 2px rgba(0,0,0,.3)); transition:all .3s; }
+.racha-vida.muerta { color:#999; opacity:.4; filter:grayscale(1); }
+@keyframes vidaPerdida { 0%{transform:scale(1);} 30%{transform:scale(1.5);} 60%{transform:scale(0.7);} 100%{transform:scale(1);} }
+.vida-flash { animation:vidaPerdida .4s ease; }
 .racha-problema { background:rgba(255,255,255,.93); border-radius:14px; padding:4px 14px;
   font-size:clamp(22px,6vw,38px); font-weight:bold; color:#073b5c;
   box-shadow:0 3px 0 rgba(0,0,0,.12); white-space:nowrap; }

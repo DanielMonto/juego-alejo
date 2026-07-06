@@ -24,13 +24,10 @@
     <div class="sub">¡Lanza pájaros, derriba cerditos y gana copas!</div>
     <div class="btn-row">
       <button class="btn aventura" onclick="abrirMapa()"><i data-lucide="map"></i> Aventura</button>
-      <button class="btn libre" onclick="abrirLibre()"><i data-lucide="target"></i> Juego libre</button>
-    </div>
-    <div class="btn-row">
       <button class="btn racha" onclick="iniciarRacha()"><i data-lucide="flame"></i> Racha</button>
-      <button class="btn medallero" onclick="abrirMedallero()"><i data-lucide="medal"></i> Logros</button>
     </div>
     <div class="btn-row">
+      <button class="btn medallero" onclick="abrirMedallero()"><i data-lucide="medal"></i> Logros</button>
       <button class="btn perso" onclick="abrirPersonalizar()"><i data-lucide="palette"></i> Mi pájaro</button>
     </div>
     <div id="menuConfig" class="menu-config">
@@ -89,7 +86,6 @@
       <button class="btn small" onclick="salirJuego()"><i data-lucide="home"></i></button>
       <div id="hudCentro">
         <div class="chip" id="chipRonda">Ronda 1/5</div>
-        <div class="chip" id="chipEstrellas"><i data-lucide="star" style="width:16px;height:16px"></i> <span id="numEstrellas">0</span></div>
       </div>
       <div id="hudVidas" class="racha-vidas"></div>
       <button class="btn small" id="btnVoz" onclick="toggleVoz()"><i data-lucide="volume-2"></i></button>
@@ -127,17 +123,7 @@
     </div>
   </div>
 
-  <!-- CARTEL RONDA (libre) -->
-  <div id="cartelLibre" class="cartel">
-    <div class="cartelBox">
-      <div class="mFesteja" id="mFestejaL">🐦</div>
-      <div class="txt" id="cartelTxtL">¡Muy bien!</div>
-      <div class="op" id="cartelOpL">4 + 2 = 6</div>
-      <button class="btn play" onclick="siguienteLibre()">Siguiente <i data-lucide="chevron-right"></i></button>
-    </div>
-  </div>
-
-  <!-- CARTEL GAME OVER (racha) -->
+<!-- CARTEL GAME OVER (racha) -->
   <div id="cartelGameOver" class="cartel">
     <div class="cartelBox">
       <div class="trofeoGrande">💔</div>

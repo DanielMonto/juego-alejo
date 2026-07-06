@@ -28,13 +28,17 @@ function refrescarCfgBtns(){
 function perderVida(){
   vidas--;
   actualizarVidasHud();
+  // Flash visual en el contenedor de vidas
+  var containers=[document.getElementById('hudVidas')];
+  var hr=document.getElementById('hudRacha'); if(hr) containers.push(hr);
+  containers.forEach(function(el){ if(el){el.classList.remove('vida-flash');void el.offsetWidth;el.classList.add('vida-flash');}});
   sonidoMal();
   rondaFallada=true;
+  toast('Vida perdida! Quedan '+vidas);
   if(vidas<=0){
     setTimeout(function(){ mostrarGameOver(); }, 800);
   } else {
-    hablar('¡Ese no! Era '+estado.resultado+'. Te quedan '+vidas);
-    // Resetear pajaro en la MISMA ronda
+    hablar('¡Ese no! Inténtalo otra vez. Te quedan '+vidas+' vidas');
     setTimeout(function(){
       var pm=paramsPajaro(pajaroSel);
       bird={x:anchor.x,y:anchor.y,vx:0,vy:0,r:Math.min(W,H)*0.035*pm.rMul,angle:0};
@@ -61,7 +65,7 @@ function mostrarGameOver(){
 /* ---- Iniciar RETO de aventura ---- */
 function iniciarReto(m,r){ modo='aventura'; retoMundo=m; retoIdx=r; rondaActual=0; primerIntento=0; vidas=3;
   var mu=MUNDOS[m]; cfgActual={maxRes:Math.max(mu.maxRes,getMaxRes()), pisosMax:mu.pisosMax, mats:mu.mats, tnt:mu.tnt, tema:mu.tema};
-  mostrar('juego'); ajustarLienzo(); construirPickerPajaro(); window.onresize=function(){ ajustarLienzo(); colocarEscena(); };
+  mostrar('juego'); ocultarHudRacha(); actualizarVidasHud(); ajustarLienzo(); construirPickerPajaro(); window.onresize=function(){ ajustarLienzo(); colocarEscena(); };
   document.getElementById('chipRonda').style.display='';
   nuevaRondaAventura(); if(!raf) bucle(); }
 
@@ -69,19 +73,6 @@ function nuevaRondaAventura(){ rondaFallada=false; document.getElementById('chip
   generarOperacion(cfgActual.maxRes, getModoOp()); pintarProblema(); colocarEscena(); fase='aim';
   actualizarVidasHud();
   hablar('¿Cuánto es '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+'?'); }
-
-/* ---- Juego LIBRE ---- */
-function iniciarLibre(m,niv){ modo='libre'; libreConfig.modo=m; libreConfig.nivel=niv;
-  var maxRes=niv===1?10:niv===2?20:30, pisos=niv===1?1:2, tnt=niv===3?0.15:0;
-  cfgActual={maxRes:maxRes, pisosMax:pisos, mats:niv>=2?['wood','stone']:['wood'], tnt:tnt, tema:'pradera'};
-  mostrar('juego'); ajustarLienzo(); construirPickerPajaro(); window.onresize=function(){ ajustarLienzo(); colocarEscena(); };
-  document.getElementById('chipRonda').style.display='none';
-  nuevaRondaLibre(); if(!raf) bucle(); }
-function nuevaRondaLibre(){ generarOperacion(cfgActual.maxRes, libreConfig.modo); pintarProblema(); colocarEscena(); fase='aim';
-  hablar('¿Cuánto es '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+'?'); }
-function siguienteLibre(){ document.getElementById('cartelLibre').classList.remove('active'); cerrarConteo(); nuevaRondaLibre(); }
-// wrap iniciarLibre para cerrar el modal
-var _iniciarLibre=iniciarLibre; iniciarLibre=function(m,n){ cerrarLibrePicker(); _iniciarLibre(m,n); };
 
 function pintarProblema(){
   document.getElementById('problema').textContent=estado.a+' '+estado.op+' '+estado.b+' = ?';
@@ -104,6 +95,7 @@ function iniciarRacha(){
   mostrar('juego'); ajustarLienzo(); construirPickerPajaro();
   window.onresize=function(){ ajustarLienzo(); colocarEscena(); };
   document.getElementById('chipRonda').style.display='none';
+  actualizarVidasHud();
   mostrarHudRacha();
   nuevaRondaRacha();
   if(!raf) bucle();
@@ -128,7 +120,6 @@ function mostrarHudRacha(){
   var hud=document.getElementById('hudRacha');
   if(!hud){ hud=document.createElement('div'); hud.id='hudRacha'; document.getElementById('juego').appendChild(hud); }
   hud.style.display='flex';
-  // Ocultar el #problema original — el hudRacha lo integra
   document.getElementById('problema').style.display='none';
   actualizarHudRacha();
 }
@@ -141,12 +132,9 @@ function actualizarHudRacha(){
     var rango=niv.hasta-niv.desde+1;
     progreso=Math.min(100, ((rachaRacha-niv.desde)/(rango))*100);
   } else { progreso=100; }
-  var corazones='';
-  for(var i=0;i<3;i++) corazones+=(i<vidas?'<span class="racha-vida">&#x2764;</span>':'<span class="racha-vida muerta">&#x2764;</span>');
   var fuego=rachaRacha>=10?' racha-fuego':'';
   var probTxt=estado.a+' '+estado.op+' '+estado.b+' = ?';
   hud.innerHTML=
-    '<div class="racha-vidas">'+corazones+'</div>'+
     '<div class="racha-problema">'+probTxt+'</div>'+
     '<div class="racha-derecha">'+
       '<div class="racha-counter'+fuego+'">'+rachaRacha+'</div>'+
@@ -276,11 +264,10 @@ function ganarRonda(pig){
   hablarAcierto(el+' '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+' es '+estado.resultado);
   if(modo==='aventura'){
     if(!rondaFallada) primerIntento++;
-    actualizarEstrellasHud();
     setTimeout(avanzarRonda, 1500);
   } else if(modo==='racha'){
     rachaAcierto();
-  } else { mostrarCartelLibre(el); }
+  }
   revisarLogros(); refrescarChips();
 }
 function avanzarRonda(){ rondaActual++; if(rondaActual>=RONDAS_POR_RETO) finReto(); else nuevaRondaAventura(); }
@@ -290,7 +277,6 @@ function falloTiro(){
   setTimeout(function(){ var pm=paramsPajaro(pajaroSel); bird={x:anchor.x,y:anchor.y,vx:0,vy:0,r:Math.min(W,H)*0.035*pm.rMul,angle:0}; dashUsado=false; bombaUsada=false; fase='aim'; }, 700);
 }
 
-function actualizarEstrellasHud(){ var e=document.getElementById('numEstrellas'); if(e) e.textContent=primerIntento; }
 
 /* ---- Fin de reto ---- */
 function finReto(){
@@ -314,13 +300,6 @@ function finReto(){
   hablar((trofeo==='copa'?'¡Perfecto! Ganaste una copa. ':'¡Reto completado! ')+'Lograste '+primerIntento+' de '+RONDAS_POR_RETO);
 }
 function volverAlMapa(){ document.getElementById('cartelTrofeo').classList.remove('active'); renderMapa(); mostrar('sMapa'); lucide.createIcons(); }
-
-function mostrarCartelLibre(el){ var signo=estado.tipo==='suma'?'+':'−';
-  document.getElementById('cartelOpL').textContent=estado.a+' '+signo+' '+estado.b+' = '+estado.resultado;
-  document.getElementById('cartelTxtL').textContent=el;
-  var car=['🐦','🥳','🏆','🙌','🎉']; document.getElementById('mFestejaL').textContent=car[rnd(0,car.length-1)];
-  document.getElementById('cartelLibre').classList.add('active');
-  hablarAcierto(el+' '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+' es '+estado.resultado); }
 
 /* ---- Panel de conteo (ayuda) ---- */
 var conteoN=0;
