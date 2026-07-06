@@ -8,8 +8,7 @@
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <title>Pájaros Matemáticos — Aventura de Alejo</title>
 <link rel="stylesheet" href="css/styles.css">
-<script src="lib/lucide.min.js"></script>
-<script src="lib/matter.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -25,10 +24,13 @@
     <div class="sub">¡Lanza pájaros, derriba cerditos y gana copas!</div>
     <div class="btn-row">
       <button class="btn aventura" onclick="abrirMapa()"><i data-lucide="map"></i> Aventura</button>
-      <button class="btn racha" onclick="iniciarRacha()"><i data-lucide="flame"></i> Racha</button>
+      <button class="btn libre" onclick="abrirLibre()"><i data-lucide="target"></i> Juego libre</button>
     </div>
     <div class="btn-row">
+      <button class="btn racha" onclick="iniciarRacha()"><i data-lucide="flame"></i> Racha</button>
       <button class="btn medallero" onclick="abrirMedallero()"><i data-lucide="medal"></i> Logros</button>
+    </div>
+    <div class="btn-row">
       <button class="btn perso" onclick="abrirPersonalizar()"><i data-lucide="palette"></i> Mi pájaro</button>
     </div>
     <div id="menuRecord" class="chip" style="margin-top:10px"><i data-lucide="flame" style="width:16px;height:16px"></i> Mejor racha: <span id="chipRecord">0</span></div>
@@ -73,13 +75,13 @@
       <button class="btn small" onclick="salirJuego()"><i data-lucide="home"></i></button>
       <div id="hudCentro">
         <div class="chip" id="chipRonda">Ronda 1/5</div>
-        <div class="chip" id="chipEstrellas"><i data-lucide="star" style="width:16px;height:16px"></i> 0</div>
+        <div class="chip" id="chipEstrellas"><i data-lucide="star" style="width:16px;height:16px"></i> <span id="numEstrellas">0</span></div>
       </div>
-      <div id="hudVidas" class="racha-vidas"></div>
       <button class="btn small" id="btnVoz" onclick="toggleVoz()"><i data-lucide="volume-2"></i></button>
     </div>
     <div id="problema">4 + 2 = ?</div>
     <button class="btn small" id="ayudaBtn" onclick="abrirConteo()"><i data-lucide="eye"></i> Contar</button>
+    <div id="pajaroPicker"></div>
     <div id="panelConteo">
       <button class="cierra" onclick="cerrarConteo()"><i data-lucide="x" style="width:16px;height:16px"></i></button>
       <div id="conteoTitulo">Toca para contar</div>
@@ -110,19 +112,29 @@
     </div>
   </div>
 
-<!-- CARTEL GAME OVER (ambos modos) -->
+  <!-- CARTEL RONDA (libre) -->
+  <div id="cartelLibre" class="cartel">
+    <div class="cartelBox">
+      <div class="mFesteja" id="mFestejaL">🐦</div>
+      <div class="txt" id="cartelTxtL">¡Muy bien!</div>
+      <div class="op" id="cartelOpL">4 + 2 = 6</div>
+      <button class="btn play" onclick="siguienteLibre()">Siguiente <i data-lucide="chevron-right"></i></button>
+    </div>
+  </div>
+
+  <!-- CARTEL GAME OVER (racha) -->
   <div id="cartelGameOver" class="cartel">
     <div class="cartelBox">
       <div class="trofeoGrande">💔</div>
-      <div class="txt" style="color:#e11d48" id="goTitulo">¡Se acabaron las vidas!</div>
+      <div class="txt" style="color:#e11d48">¡Se acabaron las vidas!</div>
       <div class="go-stats">
         <div class="go-stat"><div class="go-stat-num" id="goRacha">0</div><div class="go-stat-label">Racha</div></div>
         <div class="go-stat"><div class="go-stat-num" id="goMejor">0</div><div class="go-stat-label">Mejor</div></div>
         <div class="go-stat"><div class="go-stat-num" id="goNivel">--</div><div class="go-stat-label">Nivel</div></div>
       </div>
       <div class="btn-row">
-        <button class="btn play" id="btnGoReintentar"><i data-lucide="rotate-ccw"></i> Otra vez</button>
-        <button class="btn small" id="btnGoSalir"><i data-lucide="home"></i> Menú</button>
+        <button class="btn play" onclick="reiniciarRacha()"><i data-lucide="rotate-ccw"></i> Otra vez</button>
+        <button class="btn small" onclick="salirRacha()"><i data-lucide="home"></i> Menú</button>
       </div>
     </div>
   </div>
@@ -143,6 +155,7 @@
 <script src="js/config.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/engine.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/game.js"></script>
 <script src="js/app.js"></script>

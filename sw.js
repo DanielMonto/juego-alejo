@@ -1,13 +1,12 @@
-var CACHE='pajaros-v11';
+var CACHE='pajaros-v7';
 var URLS=[
   './',
   './index.html',
   './css/styles.css',
-  './lib/matter.min.js',
-  './lib/lucide.min.js',
   './js/config.js',
   './js/storage.js',
   './js/audio.js',
+  './js/engine.js',
   './js/ui.js',
   './js/game.js',
   './js/app.js',

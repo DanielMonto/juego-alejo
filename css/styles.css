@@ -18,6 +18,7 @@ h2 { font-size:clamp(20px,5.5vw,34px); color:#fff; margin:6px 0; text-shadow:2px
   box-shadow:0 6px 0 rgba(0,0,0,.22),0 8px 16px rgba(0,0,0,.18); transition:transform .08s,box-shadow .08s; min-width:170px; }
 .btn:active { transform:translateY(5px); box-shadow:0 1px 0 rgba(0,0,0,.22); }
 .btn.aventura { background:linear-gradient(#ff9a3c,#ff6a00); }
+.btn.libre { background:linear-gradient(#3ec7ff,#1e8fe0); }
 .btn.medallero { background:linear-gradient(#ffd23f,#ffab00); }
 .btn.perso { background:linear-gradient(#ff5fa2,#ff2e79); }
 .btn.play { background:linear-gradient(#3ddc84,#16a34a); font-size:clamp(20px,5vw,32px); padding:18px 34px; }
@@ -74,7 +75,6 @@ h2 { font-size:clamp(20px,5.5vw,34px); color:#fff; margin:6px 0; text-shadow:2px
 #hud { position:absolute; top:0; left:0; right:0; display:flex; align-items:center; justify-content:space-between; padding:9px 11px; z-index:5; pointer-events:none; }
 #hud .btn, #hud .chip { pointer-events:auto; }
 #hudCentro { display:flex; gap:8px; align-items:center; }
-#hudVidas { display:flex; gap:2px; pointer-events:none; }
 #problema { position:absolute; top:56px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,.93);
   border-radius:18px; padding:7px 24px; z-index:5; font-size:clamp(28px,7.5vw,54px); font-weight:bold; color:#073b5c;
   box-shadow:0 5px 0 rgba(0,0,0,.15); white-space:nowrap; }

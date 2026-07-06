@@ -25,8 +25,12 @@ function siguienteToast(){ if(!toastCola.length){ toastActivo=false; return; } t
 
 /* ---- Menú ---- */
 function abrirMapa(){ initAudio(); mundoVista=Math.min(save.mundoDesbloqueado, MUNDOS.length-1); refrescarChips(); renderMapa(); mostrar('sMapa'); hablar('Elige un reto'); }
+function abrirLibre(){ initAudio(); mostrarSelectorLibre(); }
 function abrirMedallero(){ refrescarChips(); renderMedallero(); mostrar('sMedallero'); }
 function abrirPersonalizar(){ renderPersonalizar(); mostrar('sPersonalizar'); }
+
+var libreConfig={modo:'mixto', nivel:1, abierto:false};
+function mostrarSelectorLibre(){ libreConfig.abierto=true; renderLibrePicker(); }
 
 /* ---- Mapa ---- */
 var mundoVista=0;
@@ -74,10 +78,6 @@ function renderMedallero(){
 }
 function revisarLogros(){ for(var i=0;i<LOGROS.length;i++){ var L=LOGROS[i]; if(save.logros.indexOf(L.id)===-1 && L.cond()){ save.logros.push(L.id); toast(L.em+' ¡Logro! '+L.nom); } } guardar(); }
 
-/* ---- Helper color ---- */
-function sombra(hex,amt){ try{ var c=hex.replace('#',''); if(c.length===3) c=c[0]+c[0]+c[1]+c[1]+c[2]+c[2]; var r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);
-  r=Math.max(0,Math.min(255,r+amt)); g=Math.max(0,Math.min(255,g+amt)); b=Math.max(0,Math.min(255,b+amt)); return 'rgb('+r+','+g+','+b+')'; }catch(e){ return hex; } }
-
 /* ---- Personalizar ---- */
 function renderPersonalizar(){
   document.getElementById('inpNombre').value=save.nombre||'';
@@ -105,3 +105,24 @@ function lanzarConfeti(){ var cont=document.getElementById('confeti'); var cols=
     c.style.animationDuration=(rnd(18,34)/10)+'s'; c.style.animationDelay=(rnd(0,8)/10)+'s'; cont.appendChild(c);
     (function(n){ setTimeout(function(){ if(n.parentNode) n.parentNode.removeChild(n); },4200); })(c); } }
 
+/* ---- Selector juego libre ---- */
+function renderLibrePicker(){
+  var modal=document.getElementById('modalLibre'); if(!modal){ modal=document.createElement('div'); modal.id='modalLibre'; modal.className='cartel'; modal.innerHTML=
+    '<div class="cartelBox"><h2 style="color:#073b5c;text-shadow:none"><i data-lucide="target"></i> Juego libre</h2>'+
+    '<div style="color:#073b5c;font-weight:bold;margin:6px">¿Qué practicas?</div>'+
+    '<div class="btn-row"><button class="btn" style="background:linear-gradient(#ff9a3c,#ff6a00)" onclick="setLibreModo(\'suma\')"><i data-lucide="plus"></i> Sumar</button>'+
+    '<button class="btn" style="background:linear-gradient(#7c5cff,#5a2ee0)" onclick="setLibreModo(\'resta\')"><i data-lucide="minus"></i> Restar</button>'+
+    '<button class="btn" style="background:linear-gradient(#ff5fa2,#ff2e79)" onclick="setLibreModo(\'mixto\')"><i data-lucide="shuffle"></i> Los dos</button></div>'+
+    '<div id="libreModoSel" style="color:#16a34a;font-weight:bold;margin:6px"></div>'+
+    '<div style="color:#073b5c;font-weight:bold;margin:6px">Nivel</div>'+
+    '<div class="btn-row"><button class="btn" style="background:linear-gradient(#3ec7ff,#1e8fe0)" onclick="iniciarLibre(libreConfig.modo,1)">Fácil</button>'+
+    '<button class="btn" style="background:linear-gradient(#3ec7ff,#1e8fe0)" onclick="iniciarLibre(libreConfig.modo,2)">Medio</button>'+
+    '<button class="btn" style="background:linear-gradient(#3ec7ff,#1e8fe0)" onclick="iniciarLibre(libreConfig.modo,3)">Fuerte</button></div>'+
+    '<button class="btn small" onclick="cerrarLibrePicker()">Cerrar</button></div>';
+    document.getElementById('app').appendChild(modal); }
+  document.getElementById('libreModoSel').textContent='Modo: '+(libreConfig.modo==='suma'?'Sumar':libreConfig.modo==='resta'?'Restar':'Los dos');
+  modal.classList.add('active');
+  lucide.createIcons();
+}
+function setLibreModo(m){ libreConfig.modo=m; document.getElementById('libreModoSel').textContent='Modo: '+(m==='suma'?'Sumar':m==='resta'?'Restar':'Los dos'); }
+function cerrarLibrePicker(){ var m=document.getElementById('modalLibre'); if(m) m.classList.remove('active'); }

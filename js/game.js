@@ -1,621 +1,325 @@
 /* ============================================================
-   GAME — Matter.js (standalone) + Canvas rendering
-   Basado en el ejemplo oficial de slingshot de Matter.js:
-   https://github.com/liabru/matter-js/blob/master/examples/slingshot.js
+   GAME — Lógica de rondas, escena, puntuación, conteo
 ============================================================ */
 
-var Engine=Matter.Engine, Render=Matter.Render, Runner=Matter.Runner,
-    Composites=Matter.Composites, Common=Matter.Common, Constraint=Matter.Constraint,
-    MouseConstraint=Matter.MouseConstraint, Mouse=Matter.Mouse,
-    Composite=Matter.Composite, Bodies=Matter.Bodies, Body=Matter.Body,
-    Events=Matter.Events;
+var cfgActual={maxRes:10,pisosMax:1,mats:['wood'],tnt:0,tema:'pradera'};
+var modo='aventura'; // 'aventura' | 'libre' | 'racha'
+var retoMundo=0, retoIdx=0, rondaActual=0, primerIntento=0, rondaFallada=false;
+var estado={a:0,b:0,op:'+',tipo:'suma',resultado:0};
+var rachaActual=0, rondaResuelta=false;
+var pajaroSel='rojo', dashUsado=false, bombaUsada=false;
 
-/* ---- Estado global ---- */
-var GS={
-  modo:'aventura', vidas:3, racha:0, rachaNivelIdx:0, rachaRecord:false,
-  rondaActual:0, primerIntento:0, rondaFallada:false,
-  retoMundo:0, retoIdx:0, pajaroSel:'rojo',
-  estado:{a:0,b:0,op:'+',tipo:'suma',resultado:0},
-  cfg:{maxRes:10,pisosMax:1,mats:['wood'],tnt:0,tema:'pradera',modoOp:'mixto'}
-};
-var matterEngine=null, matterRunner=null, matterMouse=null, matterMouseConstraint=null;
-var elastic=null, rock=null;
-var cv, ctx, W, H, groundY, anchorX, anchorY;
-var pigBodies=[], blockBodies=[], groundBodies=[];
-var gameActive=false, resolved=false, launched=false;
-var animFrame=null;
+/* ---- Iniciar RETO de aventura ---- */
+function iniciarReto(m,r){ modo='aventura'; retoMundo=m; retoIdx=r; rondaActual=0; primerIntento=0;
+  var mu=MUNDOS[m]; cfgActual={maxRes:mu.maxRes, pisosMax:mu.pisosMax, mats:mu.mats, tnt:mu.tnt, tema:mu.tema};
+  mostrar('juego'); ajustarLienzo(); construirPickerPajaro(); window.onresize=function(){ ajustarLienzo(); colocarEscena(); };
+  document.getElementById('chipRonda').style.display='';
+  nuevaRondaAventura(); if(!raf) bucle(); }
 
-/* ---- Operaciones ---- */
-function generarOperacion(){
-  var c=GS.cfg, tipo=c.modoOp;
-  if(tipo==='mixto') tipo=Math.random()<0.5?'suma':'resta';
-  var a,b;
-  if(tipo==='suma'){ var t=rnd(2,c.maxRes); a=rnd(1,t-1); b=t-a; GS.estado.op='+'; GS.estado.resultado=a+b; }
-  else{ a=rnd(3,c.maxRes); b=rnd(1,a-1); GS.estado.op='−'; GS.estado.resultado=a-b; }
-  GS.estado.a=a; GS.estado.b=b; GS.estado.tipo=tipo;
+function nuevaRondaAventura(){ rondaFallada=false; document.getElementById('chipRonda').textContent='Ronda '+(rondaActual+1)+'/'+RONDAS_POR_RETO;
+  generarOperacion(cfgActual.maxRes,'mixto'); pintarProblema(); colocarEscena(); fase='aim';
+  hablar('¿Cuánto es '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+'?'); }
+
+/* ---- Juego LIBRE ---- */
+function iniciarLibre(m,niv){ modo='libre'; libreConfig.modo=m; libreConfig.nivel=niv;
+  var maxRes=niv===1?10:niv===2?20:30, pisos=niv===1?1:2, tnt=niv===3?0.15:0;
+  cfgActual={maxRes:maxRes, pisosMax:pisos, mats:niv>=2?['wood','stone']:['wood'], tnt:tnt, tema:'pradera'};
+  mostrar('juego'); ajustarLienzo(); construirPickerPajaro(); window.onresize=function(){ ajustarLienzo(); colocarEscena(); };
+  document.getElementById('chipRonda').style.display='none';
+  nuevaRondaLibre(); if(!raf) bucle(); }
+function nuevaRondaLibre(){ generarOperacion(cfgActual.maxRes, libreConfig.modo); pintarProblema(); colocarEscena(); fase='aim';
+  hablar('¿Cuánto es '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+'?'); }
+function siguienteLibre(){ document.getElementById('cartelLibre').classList.remove('active'); cerrarConteo(); nuevaRondaLibre(); }
+// wrap iniciarLibre para cerrar el modal
+var _iniciarLibre=iniciarLibre; iniciarLibre=function(m,n){ cerrarLibrePicker(); _iniciarLibre(m,n); };
+
+function pintarProblema(){
+  document.getElementById('problema').textContent=estado.a+' '+estado.op+' '+estado.b+' = ?';
+  if(modo==='racha') actualizarHudRacha();
 }
-function generarOpciones(){
-  var c=GS.estado.resultado, set={}; set[c]=true; var t=0;
-  while(Object.keys(set).length<3&&t<60){ t++; var v=c+rnd(-3,3); if(v>=0&&v!==c) set[v]=true; }
-  var arr=Object.keys(set).map(Number);
-  for(var i=arr.length-1;i>0;i--){ var j=rnd(0,i); var x=arr[i]; arr[i]=arr[j]; arr[j]=x; }
-  return arr;
+function salirJuego(){ cerrarConteo(); ocultarHudRacha(); refrescarChips(); if(modo==='aventura') { renderMapa(); mostrar('sMapa'); } else mostrar('sMenu'); }
+
+/* ============ MODO RACHA INFINITA ============ */
+var rachaVidas=3, rachaRacha=0, rachaNivelIdx=0, rachaRecord=false;
+
+function getNivelRacha(r){
+  for(var i=RACHA_NIVELES.length-1;i>=0;i--){ if(r>=RACHA_NIVELES[i].desde) return i; }
+  return 0;
 }
 
-/* ---- Iniciar modos ---- */
-function iniciarReto(m,r){
-  GS.modo='aventura'; GS.retoMundo=m; GS.retoIdx=r;
-  GS.rondaActual=0; GS.primerIntento=0; GS.vidas=3; GS.rondaFallada=false;
-  var mu=MUNDOS[m];
-  GS.cfg={maxRes:mu.maxRes,pisosMax:mu.pisosMax,mats:mu.mats,tnt:mu.tnt,tema:mu.tema,modoOp:'mixto'};
-  lanzarJuego();
-}
 function iniciarRacha(){
-  GS.modo='racha'; GS.racha=0; GS.rachaNivelIdx=0; GS.rachaRecord=false; GS.vidas=3;
+  modo='racha'; rachaVidas=3; rachaRacha=0; rachaActual=0; rachaNivelIdx=0; rachaRecord=false;
   var niv=RACHA_NIVELES[0];
-  GS.cfg={maxRes:niv.maxRes,pisosMax:niv.pisosMax,mats:niv.mats,tnt:niv.tnt,tema:niv.tema,modoOp:niv.modoOp};
-  lanzarJuego();
+  cfgActual={maxRes:niv.maxRes, pisosMax:niv.pisosMax, mats:niv.mats, tnt:niv.tnt, tema:niv.tema};
+  mostrar('juego'); ajustarLienzo(); construirPickerPajaro();
+  window.onresize=function(){ ajustarLienzo(); colocarEscena(); };
+  document.getElementById('chipRonda').style.display='none';
+  mostrarHudRacha();
+  nuevaRondaRacha();
+  if(!raf) bucle();
 }
 
-function lanzarJuego(){
-  generarOperacion();
-  mostrar('juego');
-  requestAnimationFrame(function(){ setupMatter(); nuevaRonda(); });
-}
-function salirJuego(){
-  stopGame();
-  refrescarChips();
-  if(GS.modo==='aventura'){ renderMapa(); mostrar('sMapa'); } else mostrar('sMenu');
-}
-function stopGame(){
-  gameActive=false;
-  if(animFrame){ cancelAnimationFrame(animFrame); animFrame=null; }
-  if(matterRunner){ Runner.stop(matterRunner); }
-}
-
-/* ============================================================
-   MATTER.JS SETUP — Patron oficial slingshot
-============================================================ */
-function setupMatter(){
-  cv=document.getElementById('lienzo');
-  W=cv.parentElement.clientWidth; H=cv.parentElement.clientHeight;
-  cv.width=W; cv.height=H;
-  ctx=cv.getContext('2d');
-  groundY=H*0.82;
-  anchorX=W*0.15;
-  anchorY=groundY-Math.min(W,H)*0.28;
-
-  // Engine
-  if(matterEngine){ Composite.clear(matterEngine.world); Engine.clear(matterEngine); }
-  matterEngine=Engine.create();
-  matterEngine.gravity.y=1.8;
-
-  // Suelo y paredes
-  groundBodies=[];
-  groundBodies.push(Bodies.rectangle(W/2, groundY+100, W*3, 200, {isStatic:true, label:'ground', friction:1}));
-  groundBodies.push(Bodies.rectangle(-50, H/2, 100, H*2, {isStatic:true, label:'wall'}));
-  groundBodies.push(Bodies.rectangle(W+50, H/2, 100, H*2, {isStatic:true, label:'wall'}));
-  Composite.add(matterEngine.world, groundBodies);
-
-  // Mouse constraint (para el drag del slingshot)
-  if(matterMouse) Mouse.clearSourceEvents(matterMouse);
-  matterMouse=Mouse.create(cv);
-  matterMouse.pixelRatio=window.devicePixelRatio||1;
-  matterMouseConstraint=MouseConstraint.create(matterEngine,{
-    mouse:matterMouse,
-    constraint:{stiffness:0.2, render:{visible:false}}
-  });
-  Composite.add(matterEngine.world, matterMouseConstraint);
-
-  // Collision events
-  Events.off(matterEngine); // limpiar eventos previos
-  Events.on(matterEngine,'collisionStart',function(event){
-    if(resolved) return;
-    for(var i=0;i<event.pairs.length;i++){
-      var a=event.pairs[i].bodyA, b=event.pairs[i].bodyB;
-      handleCollision(a,b);
-    }
-  });
-
-  // afterUpdate: detectar cuando se suelta el rock (patron oficial)
-  Events.on(matterEngine,'afterUpdate',function(){
-    if(!rock||resolved) return;
-    // Si el mouse se solto Y el rock se alejo del anchor => fue lanzado
-    if(matterMouseConstraint.mouse.button===-1 && !launched){
-      var dx=rock.position.x-anchorX, dy=rock.position.y-anchorY;
-      if(Math.abs(dx)>15||Math.abs(dy)>15){
-        launched=true;
-        sonidoLanzar();
-      }
-    }
-    // Si el rock se detuvo o salio de pantalla => fallo el tiro
-    if(launched && !resolved){
-      var sp=Body.getSpeed(rock);
-      var pos=rock.position;
-      if(pos.x>W+100||pos.x<-100||pos.y>H+100){
-        onMiss();
-      } else if(sp<0.5 && pos.y>groundY-30){
-        onMiss();
-      }
-    }
-  });
-
-  // Runner
-  if(matterRunner) Runner.stop(matterRunner);
-  matterRunner=Runner.create();
-  Runner.run(matterRunner, matterEngine);
-
-  gameActive=true;
-}
-
-/* ---- Crear ronda (rock + fort + pigs + elastic) ---- */
-function nuevaRonda(){
-  resolved=false; launched=false;
-  GS.rondaFallada=false;
-  pigBodies=[]; blockBodies=[];
-
-  // Limpiar bodies de ronda anterior (no tocar ground/walls/mouseConstraint)
-  var allBodies=Composite.allBodies(matterEngine.world);
-  for(var i=allBodies.length-1;i>=0;i--){
-    var b=allBodies[i];
-    if(b.label!=='ground'&&b.label!=='wall'&&!b.isSensor){
-      Composite.remove(matterEngine.world, b);
-    }
+function nuevaRondaRacha(){
+  var nuevoIdx=getNivelRacha(rachaRacha);
+  if(nuevoIdx!==rachaNivelIdx){
+    rachaNivelIdx=nuevoIdx;
+    var niv=RACHA_NIVELES[nuevoIdx];
+    cfgActual={maxRes:niv.maxRes, pisosMax:niv.pisosMax, mats:niv.mats, tnt:niv.tnt, tema:niv.tema};
+    toast('Nivel: '+niv.nombre+'!');
   }
-  // Limpiar constraints
-  var allConstraints=Composite.allConstraints(matterEngine.world);
-  for(var j=allConstraints.length-1;j>=0;j--){
-    if(allConstraints[j]!==matterMouseConstraint.constraint){
-      Composite.remove(matterEngine.world, allConstraints[j]);
-    }
-  }
-
-  // ROCK (pajaro) — patron oficial
-  var rockR=Math.min(W,H)*0.022;
-  if(GS.pajaroSel==='azul') rockR*=1.4;
-  rock=Bodies.circle(anchorX, anchorY, rockR, {
-    density:0.004, label:'bird', restitution:0.3, friction:0.5
-  });
-  rock.gameData={r:rockR};
-  Composite.add(matterEngine.world, rock);
-
-  // ELASTIC — patron oficial del slingshot
-  elastic=Constraint.create({
-    pointA:{x:anchorX, y:anchorY},
-    bodyB:rock,
-    length:0.01,
-    damping:0.01,
-    stiffness:0.05
-  });
-  Composite.add(matterEngine.world, elastic);
-
-  // FUERTES + CERDOS
-  buildForts();
-
-  // HUD
-  updateHUD();
-
-  // Iniciar loop de dibujo
-  if(!animFrame) drawLoop();
-
-  initAudio();
-  hablar('¿Cuánto es '+GS.estado.a+(GS.estado.tipo==='suma'?' más ':' menos ')+GS.estado.b+'?');
+  var niv=RACHA_NIVELES[rachaNivelIdx];
+  generarOperacion(cfgActual.maxRes, niv.modoOp);
+  pintarProblema(); colocarEscena(); fase='aim';
+  actualizarHudRacha();
+  hablar('¿Cuánto es '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+'?');
 }
 
-/* ---- Fuertes ---- */
-function buildForts(){
-  var opciones=generarOpciones();
-  var xs=[W*0.55, W*0.73, W*0.90];
-  for(var i=0;i<3;i++){
-    var pigY=buildSingleFort(xs[i]);
-    createPig(xs[i], pigY, opciones[i], opciones[i]===GS.estado.resultado);
-  }
-}
-function buildSingleFort(px){
-  var unit=Math.min(W,H)*0.035;
-  var comp=rnd(1,GS.cfg.pisosMax);
-  var wallW=unit*0.5, wallH=unit*1.0, beamW=unit*2.6, beamH=unit*0.4;
-  var mats=GS.cfg.mats;
-  var baseY=groundY;
-
-  addBlock(px, baseY-beamH/2, beamW, beamH, mats[0%mats.length]);
-  var floorTop=baseY-beamH;
-
-  for(var n=0;n<comp;n++){
-    var y=floorTop-n*(wallH+beamH);
-    addBlock(px-unit*1.0, y-wallH/2, wallW, wallH, mats[(n+1)%mats.length]);
-    addBlock(px+unit*1.0, y-wallH/2, wallW, wallH, mats[(n+2)%mats.length]);
-    addBlock(px, y-wallH-beamH/2, beamW, beamH, mats[n%mats.length]);
-  }
-  if(GS.cfg.tnt>0&&Math.random()<GS.cfg.tnt+0.2){
-    addBlock(px, floorTop-unit*0.35, unit*0.6, unit*0.6, 'tnt');
-  }
-  return floorTop-unit*0.45;
-}
-function addBlock(x,y,w,h,mat){
-  var density=mat==='stone'?0.005:mat==='ice'?0.001:0.003;
-  var b=Bodies.rectangle(x,y,w,h,{
-    isStatic:true, label:'block', friction:0.9, restitution:0.05, density:density
-  });
-  b.gameData={mat:mat, w:w, h:h};
-  blockBodies.push(b);
-  Composite.add(matterEngine.world, b);
-}
-function createPig(x,y,num,correcto){
-  var r=Math.min(W,H)*0.022;
-  var b=Bodies.circle(x,y,r,{isStatic:true, label:'pig', friction:0.8, density:0.003});
-  b.gameData={num:num, correcto:correcto, r:r, vivo:true};
-  pigBodies.push(b);
-  Composite.add(matterEngine.world, b);
+function mostrarHudRacha(){
+  var hud=document.getElementById('hudRacha');
+  if(!hud){ hud=document.createElement('div'); hud.id='hudRacha'; document.getElementById('juego').appendChild(hud); }
+  hud.style.display='flex';
+  // Ocultar el #problema original — el hudRacha lo integra
+  document.getElementById('problema').style.display='none';
+  actualizarHudRacha();
 }
 
-/* ---- Colisiones ---- */
-function handleCollision(a,b){
-  var bird=null, other=null;
-  if(a.label==='bird'){bird=a;other=b;}
-  else if(b.label==='bird'){bird=b;other=a;}
-  if(!bird||!launched) return;
-
-  if(other.label==='pig'&&other.gameData&&other.gameData.vivo){
-    onHitPig(other); return;
-  }
-  if(other.label==='block'){
-    wakeBlocks(bird.position.x,bird.position.y);
-    if(other.gameData&&other.gameData.mat==='tnt'){
-      triggerExplosion(other.position.x,other.position.y);
-    }
-  }
-}
-function wakeBlocks(x,y){
-  var radius=Math.min(W,H)*0.18;
-  for(var i=0;i<blockBodies.length;i++){
-    var bl=blockBodies[i]; if(!bl.isStatic) continue;
-    var dx=bl.position.x-x, dy=bl.position.y-y;
-    if(Math.sqrt(dx*dx+dy*dy)<radius){ Body.setStatic(bl,false); }
-  }
-}
-function triggerExplosion(x,y){
-  var radius=Math.min(W,H)*0.14;
-  sonidoBoom();
-  for(var j=0;j<blockBodies.length;j++){
-    var bl=blockBodies[j];
-    var dx=bl.position.x-x, dy=bl.position.y-y, d=Math.sqrt(dx*dx+dy*dy);
-    if(d<radius*1.5){
-      Body.setStatic(bl,false);
-      var force=(1-d/(radius*1.5))*0.08;
-      Body.applyForce(bl,bl.position,{x:(dx/(d||1))*force, y:(dy/(d||1))*force-force*0.5});
-      if(bl.gameData&&bl.gameData.mat==='tnt'&&d<radius){
-        bl.gameData.mat='used';
-        (function(bx,by){setTimeout(function(){triggerExplosion(bx,by);},200);})(bl.position.x,bl.position.y);
-      }
-    }
-  }
-  for(var k=0;k<pigBodies.length;k++){
-    var pg=pigBodies[k]; if(!pg.gameData||!pg.gameData.vivo) continue;
-    var dpx=pg.position.x-x, dpy=pg.position.y-y;
-    if(Math.sqrt(dpx*dpx+dpy*dpy)<radius+pg.gameData.r){ onHitPig(pg); return; }
-  }
-  if(!save.tntUsado){save.tntUsado=true;guardar();toast('¡Explotaste un TNT!');revisarLogros();}
+function actualizarHudRacha(){
+  var hud=document.getElementById('hudRacha'); if(!hud) return;
+  var niv=RACHA_NIVELES[rachaNivelIdx];
+  var progreso=0;
+  if(rachaNivelIdx<RACHA_NIVELES.length-1){
+    var rango=niv.hasta-niv.desde+1;
+    progreso=Math.min(100, ((rachaRacha-niv.desde)/(rango))*100);
+  } else { progreso=100; }
+  var corazones='';
+  for(var i=0;i<3;i++) corazones+=(i<rachaVidas?'<span class="racha-vida">&#x2764;</span>':'<span class="racha-vida muerta">&#x2764;</span>');
+  var fuego=rachaRacha>=10?' racha-fuego':'';
+  var probTxt=estado.a+' '+estado.op+' '+estado.b+' = ?';
+  hud.innerHTML=
+    '<div class="racha-vidas">'+corazones+'</div>'+
+    '<div class="racha-problema">'+probTxt+'</div>'+
+    '<div class="racha-derecha">'+
+      '<div class="racha-counter'+fuego+'">'+rachaRacha+'</div>'+
+      '<div><div class="racha-nivel">'+niv.nombre+'</div>'+
+      '<div class="racha-barra"><div class="racha-barra-fill" style="width:'+progreso+'%"></div></div>'+
+      '<div class="racha-record">Mejor: '+save.rachaMax+'</div></div>'+
+    '</div>';
 }
 
-/* ---- Hit pig ---- */
-function onHitPig(pigBody){
-  if(resolved) return;
-  resolved=true;
-  if(pigBody.gameData.correcto){ winRound(pigBody); }
-  else { loseLife(); }
-}
-function onMiss(){
-  if(resolved) return;
-  resolved=true;
-  setTimeout(function(){ resetRock(); },800);
+function ocultarHudRacha(){
+  var hud=document.getElementById('hudRacha'); if(hud) hud.style.display='none';
+  document.getElementById('problema').style.display='';
 }
 
-/* ---- Win ---- */
-function winRound(pig){
-  pig.gameData.vivo=false;
-  Body.setStatic(pig,false);
-  Body.setVelocity(pig,{x:rnd(3,8),y:rnd(-12,-6)});
-  wakeBlocks(pig.position.x,pig.position.y);
-  sonidoVictoria(); lanzarConfeti();
-  save.aciertosTotales++;
-  if(!GS.rondaFallada&&GS.modo==='aventura') GS.primerIntento++;
-  var elogios=['¡Muy bien','¡Excelente','¡Campeón','¡Genial','¡Súper'];
-  hablarAcierto(elogios[rnd(0,elogios.length-1)]+', '+(save.nombre||'Alejo')+'! '+GS.estado.a+(GS.estado.tipo==='suma'?' más ':' menos ')+GS.estado.b+' es '+GS.estado.resultado);
-  if(GS.modo==='racha'){
-    GS.racha++;
-    if(GS.racha>save.rachaMax){save.rachaMax=GS.racha;guardar();
-      if(!GS.rachaRecord){GS.rachaRecord=true;toast('Nuevo record: '+GS.racha+'!');sonidoTrofeo();lanzarConfeti();}}
-  }
-  guardar();revisarLogros();refrescarChips();updateHUD();
-  setTimeout(nextRound,1800);
-}
-
-/* ---- Lose life ---- */
-function loseLife(){
-  GS.vidas--; GS.rondaFallada=true; sonidoMal(); updateHUD();
-  if(GS.modo==='racha'){GS.racha=0;GS.rachaNivelIdx=0;
-    var niv=RACHA_NIVELES[0];
-    GS.cfg={maxRes:niv.maxRes,pisosMax:niv.pisosMax,mats:niv.mats,tnt:niv.tnt,tema:niv.tema,modoOp:niv.modoOp};}
-  if(GS.vidas<=0){ gameOver(); }
-  else{
-    hablar('¡Ese no! Era '+GS.estado.resultado+'. Te quedan '+GS.vidas+' vidas');
-    setTimeout(function(){ resetRock(); },900);
-  }
-}
-
-/* ---- Reset rock (misma ronda) ---- */
-function resetRock(){
-  resolved=false; launched=false;
-  // Reemplazar rock y elastic — patron oficial
-  Composite.remove(matterEngine.world, rock);
-  Composite.remove(matterEngine.world, elastic);
-  var rockR=rock.gameData.r;
-  rock=Bodies.circle(anchorX, anchorY, rockR, {
-    density:0.004, label:'bird', restitution:0.3, friction:0.5
-  });
-  rock.gameData={r:rockR};
-  Composite.add(matterEngine.world, rock);
-  elastic=Constraint.create({pointA:{x:anchorX,y:anchorY},bodyB:rock,length:0.01,damping:0.01,stiffness:0.05});
-  Composite.add(matterEngine.world, elastic);
-}
-
-/* ---- Next round ---- */
-function nextRound(){
-  if(GS.modo==='aventura'){
-    GS.rondaActual++;
-    if(GS.rondaActual>=RONDAS_POR_RETO){finReto();return;}
+function rachaFallo(){
+  rachaVidas--;
+  rachaRacha=0;
+  actualizarHudRacha();
+  if(rachaVidas<=0){
+    rachaGameOver();
   } else {
-    var ni=0;
-    for(var i=RACHA_NIVELES.length-1;i>=0;i--){if(GS.racha>=RACHA_NIVELES[i].desde){ni=i;break;}}
-    if(ni!==GS.rachaNivelIdx){
-      GS.rachaNivelIdx=ni;var niv=RACHA_NIVELES[ni];
-      GS.cfg={maxRes:niv.maxRes,pisosMax:niv.pisosMax,mats:niv.mats,tnt:niv.tnt,tema:niv.tema,modoOp:niv.modoOp};
-      toast('Nivel: '+niv.nombre+'!');
-    }
+    hablar('¡Perdiste una vida! Te quedan '+rachaVidas);
+    setTimeout(function(){
+      var pm=paramsPajaro(pajaroSel);
+      bird={x:anchor.x,y:anchor.y,vx:0,vy:0,r:Math.min(W,H)*0.035*pm.rMul,angle:0};
+      dashUsado=false; bombaUsada=false; fase='aim';
+    }, 700);
   }
-  generarOperacion();
-  nuevaRonda();
 }
 
-/* ---- Fin reto / Game Over ---- */
-function finReto(){
-  var p=GS.primerIntento,trofeo=p>=5?'copa':p>=4?'oro':p>=3?'plata':'bronce',estrellas=p>=5?3:p>=3?2:1;
-  var key=retoKey(GS.retoMundo,GS.retoIdx),prev=save.retos[key];
-  var rank={bronce:1,plata:2,oro:3,copa:4};
-  if(!prev||rank[trofeo]>rank[prev.trofeo])save.retos[key]={trofeo:trofeo,estrellas:estrellas,completado:true};
-  var gc=trofeo==='copa'?2:trofeo==='oro'?1:0;
-  if(!prev){save.copas+=gc;if(trofeo==='copa')save.copasPerfectas++;}
-  else{var pc=prev.trofeo==='copa'?2:prev.trofeo==='oro'?1:0;if(gc>pc){save.copas+=(gc-pc);if(trofeo==='copa'&&prev.trofeo!=='copa')save.copasPerfectas++;}}
-  if(mundoTerminado(GS.retoMundo)&&save.mundoDesbloqueado<GS.retoMundo+1&&GS.retoMundo+1<MUNDOS.length){save.mundoDesbloqueado=GS.retoMundo+1;toast('¡Nuevo mundo: '+MUNDOS[GS.retoMundo+1].nombre+'!');}
-  for(var i=0;i<PAJAROS.length;i++){var P=PAJAROS[i];if(save.pajaros.indexOf(P.id)===-1&&save.copas>=P.costo){save.pajaros.push(P.id);toast('¡Pájaro nuevo: '+P.nombre+'!');}}
-  guardar();revisarLogros();refrescarChips();
-  document.getElementById('trofeoEmoji').textContent=trofeoEmoji(trofeo);
-  document.getElementById('trofeoTxt').textContent=trofeo==='copa'?'¡PERFECTO! 🏆':'¡Reto completado!';
-  document.getElementById('trofeoEstrellas').textContent='⭐'.repeat(estrellas)+'☆'.repeat(3-estrellas);
-  document.getElementById('trofeoDetalle').textContent=p+' de '+RONDAS_POR_RETO+' a la primera';
-  document.getElementById('cartelTrofeo').classList.add('active');
-  sonidoTrofeo();lanzarConfeti();
-  hablar((trofeo==='copa'?'¡Perfecto! ':'¡Reto completado! ')+'Lograste '+p+' de '+RONDAS_POR_RETO);
+function rachaAcierto(){
+  rachaRacha++;
+  save.aciertosTotales++;
+  if(rachaRacha>save.rachaMax){
+    save.rachaMax=rachaRacha;
+    if(!rachaRecord){ rachaRecord=true; toast('Nuevo record: '+rachaRacha+'!'); sonidoTrofeo(); lanzarConfeti(); }
+  }
+  guardar();
+  actualizarHudRacha();
+  revisarLogros();
+  setTimeout(nuevaRondaRacha, 1500);
 }
-function gameOver(){
-  document.getElementById('goTitulo').textContent='¡Se acabaron las vidas!';
-  document.getElementById('goRacha').textContent=GS.modo==='racha'?GS.racha:GS.primerIntento+'/'+RONDAS_POR_RETO;
-  document.getElementById('goMejor').textContent=save.rachaMax;
-  document.getElementById('goNivel').textContent=GS.modo==='racha'?RACHA_NIVELES[GS.rachaNivelIdx].nombre:'Reto '+(GS.retoIdx+1);
-  document.getElementById('btnGoReintentar').onclick=function(){
-    document.getElementById('cartelGameOver').classList.remove('active');
-    if(GS.modo==='racha')iniciarRacha();else iniciarReto(GS.retoMundo,GS.retoIdx);};
-  document.getElementById('btnGoSalir').onclick=function(){
-    document.getElementById('cartelGameOver').classList.remove('active');salirJuego();};
+
+function rachaGameOver(){
+  fase='resolver'; ocultarHudRacha();
+  var mejor=save.rachaMax;
+  document.getElementById('goRacha').textContent=rachaRacha;
+  document.getElementById('goMejor').textContent=mejor;
+  document.getElementById('goNivel').textContent=RACHA_NIVELES[rachaNivelIdx].nombre;
   document.getElementById('cartelGameOver').classList.add('active');
-  hablar('Se acabaron las vidas');
+  sonidoMal();
+  hablar('Se acabó. Llegaste a '+rachaRacha+'. Tu mejor racha es '+mejor);
 }
 
-/* ---- HUD ---- */
-function updateHUD(){
-  var el=document.getElementById('hudVidas');
-  if(el){var h='';for(var i=0;i<3;i++)h+=(i<GS.vidas?'<span class="racha-vida">&#x2764;</span>':'<span class="racha-vida muerta">&#x2764;</span>');el.innerHTML=h;}
-  var prob=document.getElementById('problema');
-  if(prob)prob.textContent=GS.estado.a+' '+GS.estado.op+' '+GS.estado.b+' = ?';
-  var chip=document.getElementById('chipRonda');
-  if(chip){if(GS.modo==='aventura'){chip.style.display='';chip.textContent='Ronda '+(GS.rondaActual+1)+'/'+RONDAS_POR_RETO;}else chip.style.display='none';}
-  var est=document.getElementById('chipEstrellas');
-  if(est){
-    if(GS.modo==='racha'){est.innerHTML='<i data-lucide="flame" style="width:16px;height:16px"></i> '+GS.racha;}
-    else{est.innerHTML='<i data-lucide="star" style="width:16px;height:16px"></i> '+GS.primerIntento;}
-    try{lucide.createIcons();}catch(e){}
-  }
+function reiniciarRacha(){
+  document.getElementById('cartelGameOver').classList.remove('active');
+  iniciarRacha();
 }
 
-/* ============================================================
-   CANVAS DRAWING — nuestro rendering custom
-============================================================ */
-function drawLoop(){
-  if(!gameActive){animFrame=null;return;}
-  animFrame=requestAnimationFrame(drawLoop);
-  if(!ctx) return;
-  ctx.clearRect(0,0,W,H);
-  drawBackground();
-  drawSlingshot();
-  drawBlocks();
-  drawPigs();
-  drawBird();
+function salirRacha(){
+  document.getElementById('cartelGameOver').classList.remove('active');
+  ocultarHudRacha();
+  refrescarChips();
+  mostrar('sMenu');
 }
 
-function drawBackground(){
-  var tema=TEMAS[GS.cfg.tema]||TEMAS.pradera;
-  // Cielo
-  ctx.fillStyle=intToHex(tema.sky); ctx.fillRect(0,0,W,groundY);
-  // Sol
-  ctx.fillStyle=GS.cfg.tema==='noche'?'#f5f3c0':'#fff3a0';
-  ctx.beginPath(); ctx.arc(W*0.82,H*0.15,Math.min(W,H)*0.04,0,7); ctx.fill();
-  // Nubes
-  if(GS.cfg.tema!=='noche'&&GS.cfg.tema!=='volcan'){
-    ctx.fillStyle='rgba(255,255,255,0.8)';
-    drawCloud(W*0.3,H*0.14,Math.min(W,H)*0.035);
-    drawCloud(W*0.6,H*0.09,Math.min(W,H)*0.028);
-  }
-  // Suelo
-  ctx.fillStyle=intToHex(tema.ground); ctx.fillRect(0,groundY,W,H-groundY);
-  ctx.fillStyle=intToHex(tema.border); ctx.fillRect(0,groundY,W,4);
-  // Pasto
-  if(GS.cfg.tema==='pradera'){
-    ctx.strokeStyle='#3d8b40'; ctx.lineWidth=2;
-    for(var i=0;i<W;i+=22){var gh=5+((i*7)%5);
-      ctx.beginPath();ctx.moveTo(i,groundY+4);ctx.lineTo(i-2,groundY+4-gh);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(i,groundY+4);ctx.lineTo(i+2,groundY+4-gh);ctx.stroke();}
-  }
-}
-function drawCloud(x,y,r){
-  ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.arc(x+r*0.9,y+r*0.15,r*0.75,0,7);
-  ctx.arc(x-r*0.9,y+r*0.15,r*0.75,0,7);ctx.arc(x+r*0.35,y-r*0.35,r*0.65,0,7);ctx.fill();
-}
+/* ---- Operación ---- */
+function generarOperacion(maxRes,modoOp){ var tipo=modoOp; if(tipo==='mixto') tipo=Math.random()<0.5?'suma':'resta';
+  var a,b; if(tipo==='suma'){ var t=rnd(2,maxRes); a=rnd(1,t-1); b=t-a; estado.op='+'; estado.resultado=a+b; }
+  else { a=rnd(3,maxRes); b=rnd(1,a-1); estado.op='−'; estado.resultado=a-b; }
+  estado.a=a; estado.b=b; estado.tipo=tipo; }
+function generarOpciones(correcto){ var set={}; set[correcto]=true; var t=0;
+  while(Object.keys(set).length<3&&t<60){ t++; var v=correcto+rnd(-3,3); if(v>=0&&v!==correcto) set[v]=true; }
+  var arr=Object.keys(set).map(Number); for(var i=arr.length-1;i>0;i--){ var j=rnd(0,i); var x=arr[i]; arr[i]=arr[j]; arr[j]=x; } return arr; }
 
-function drawSlingshot(){
-  if(!rock) return;
-  var sz=Math.min(W,H), fw=sz*0.022;
-  var ltx=anchorX-fw,lty=anchorY, rtx=anchorX+fw,rty=anchorY;
-  var splitY=anchorY+sz*0.06;
-  // Goma trasera
-  ctx.lineStyle=1;
-  ctx.strokeStyle='#3f2a15'; ctx.lineWidth=sz*0.01;
-  ctx.beginPath(); ctx.moveTo(rtx,rty); ctx.lineTo(rock.position.x,rock.position.y); ctx.stroke();
-  // Base
-  ctx.strokeStyle='#8b5a2b'; ctx.lineWidth=sz*0.022; ctx.lineCap='round';
-  ctx.beginPath();ctx.moveTo(anchorX,groundY);ctx.lineTo(anchorX,splitY);ctx.stroke();
-  // Horquillas
-  ctx.strokeStyle='#9c6631'; ctx.lineWidth=sz*0.016;
-  ctx.beginPath();ctx.moveTo(anchorX,splitY);ctx.lineTo(ltx,lty);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(anchorX,splitY);ctx.lineTo(rtx,rty);ctx.stroke();
-  // Puntas
-  ctx.fillStyle='#7a4a1e';
-  ctx.beginPath();ctx.arc(ltx,lty,sz*0.01,0,7);ctx.fill();
-  ctx.beginPath();ctx.arc(rtx,rty,sz*0.01,0,7);ctx.fill();
-  // Goma delantera
-  ctx.strokeStyle='#6b4423'; ctx.lineWidth=sz*0.01;
-  ctx.beginPath(); ctx.moveTo(ltx,lty); ctx.lineTo(rock.position.x,rock.position.y); ctx.stroke();
+/* ---- Construir escena ---- */
+function nuevoBloque(x,y,w,h,type){ return {x:x,y:y,w:w,h:h,type:type,vx:0,vy:0,rot:0,vrot:0,cayendo:false,alpha:1}; }
+function colocarEscena(){
+  var prBase=Math.min(W,H)*0.045; var pm=paramsPajaro(pajaroSel);
+  bird={x:anchor.x,y:anchor.y,vx:0,vy:0, r:Math.min(W,H)*0.035*pm.rMul, angle:0}; dashUsado=false; bombaUsada=false; rondaResuelta=false;
+  var opciones=generarOpciones(estado.resultado);
+  var xs=[W*0.55,W*0.73,W*0.90]; pigs=[]; blocks=[];
+  for(var i=0;i<3;i++){
+    var pr=prBase*(0.78+Math.random()*0.55);
+    var estilo=rnd(0,3);
+    var py=construirFuerte(xs[i], pr, estilo);
+    pigs.push({x:xs[i],y:py,r:pr,num:opciones[i],correcto:opciones[i]===estado.resultado,vivo:true,vx:0,vy:0,rot:0,shake:0,bob:Math.random()*6}); }
+  particulas=[]; explosiones=[]; rastro=[];
+  estrellasFondo=[]; if(cfgActual.tema==='noche'){ for(var s=0;s<40;s++){ estrellasFondo.push({x:Math.random()*W,y:Math.random()*groundY*0.9,r:Math.random()*1.8+0.6}); } }
+}
+function mat(k){ var m=cfgActual.mats; return m[((k%m.length)+m.length)%m.length]; }
+function construirFuerte(px, pr, estilo){
+  var comp=rnd(1, cfgActual.pisosMax);
+  var unit=pr*0.95, wallW=pr*0.5, beamH=pr*0.55;
+  var floorTop=groundY;
+  blocks.push(nuevoBloque(px, floorTop-beamH*0.5, pr*3.1, beamH, mat(rnd(0,4))));
+  var baseY=floorTop-beamH;
+  var py=baseY-pr*0.9;
+  var altura=comp + (estilo===1?2:1);
+  for(var s=-1;s<=1;s+=2){ var wx=px+s*pr*1.25; var yy=baseY;
+    for(var k=0;k<altura;k++){ blocks.push(nuevoBloque(wx, yy-unit*0.5, wallW, unit, mat(k+estilo))); yy-=unit; } }
+  var muroTop=baseY-altura*unit;
+  if(estilo!==2){
+    var techos=(estilo===3?2:1);
+    for(var r2=0;r2<techos;r2++){ blocks.push(nuevoBloque(px, muroTop - r2*beamH - beamH*0.5, pr*3.2, beamH, mat(r2))); } }
+  if(estilo===0 && comp>=2){
+    blocks.push(nuevoBloque(px - pr*1.95, baseY-unit*0.5, wallW, unit, mat(2))); }
+  if(estilo===3){
+    blocks.push(nuevoBloque(px, muroTop-2*beamH-beamH*0.6, pr*1.4, beamH, mat(1))); }
+  if(cfgActual.tnt>0 && Math.random()< Math.min(0.6, cfgActual.tnt+0.25)){
+    blocks.push(nuevoBloque(px, baseY-pr*0.5, pr*0.85, pr*0.85, 'tnt')); }
+  return py;
 }
 
-function drawBird(){
-  if(!rock) return;
-  var x=rock.position.x, y=rock.position.y, r=rock.gameData.r;
-  var col=getBirdHex();
-  var colD=shadeColor(col,-40), colL=shadeColor(col,30);
-  ctx.save(); ctx.translate(x,y); ctx.rotate(rock.angle);
-  // Cola
-  ctx.fillStyle=colD;
-  ctx.beginPath();ctx.moveTo(-r*0.7,0);ctx.lineTo(-r*1.5,-r*0.45);ctx.lineTo(-r*1.35,0);ctx.lineTo(-r*1.5,r*0.45);ctx.closePath();ctx.fill();
-  // Cuerpo
-  ctx.fillStyle=col; ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fill();
-  ctx.fillStyle=colL; ctx.globalAlpha=0.3; ctx.beginPath();ctx.arc(-r*0.2,-r*0.2,r*0.45,0,7);ctx.fill(); ctx.globalAlpha=1;
-  ctx.strokeStyle=colD; ctx.lineWidth=2; ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.stroke();
-  // Panza
-  ctx.fillStyle='#ffe0c2'; ctx.beginPath();ctx.ellipse(r*0.1,r*0.35,r*0.45,r*0.35,0,0,7);ctx.fill();
-  // Cresta
-  ctx.strokeStyle=colD; ctx.lineWidth=r*0.12; ctx.lineCap='round';
-  ctx.beginPath();ctx.moveTo(-r*0.1,-r*0.85);ctx.lineTo(-r*0.25,-r*1.3);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(r*0.15,-r*0.85);ctx.lineTo(r*0.06,-r*1.35);ctx.stroke();
-  // Ojos
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(r*0.18,-r*0.25,r*0.27,0,7);ctx.fill();ctx.beginPath();ctx.arc(r*0.55,-r*0.22,r*0.22,0,7);ctx.fill();
-  ctx.fillStyle='#222';ctx.beginPath();ctx.arc(r*0.28,-r*0.25,r*0.11,0,7);ctx.fill();ctx.beginPath();ctx.arc(r*0.6,-r*0.22,r*0.09,0,7);ctx.fill();
-  // Cejas
-  ctx.strokeStyle=colD; ctx.lineWidth=r*0.12;
-  ctx.beginPath();ctx.moveTo(-r*0.1,-r*0.7);ctx.lineTo(r*0.45,-r*0.45);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(r*0.75,-r*0.55);ctx.lineTo(r*0.4,-r*0.42);ctx.stroke();
-  // Pico
-  ctx.fillStyle='#ff9500';
-  ctx.beginPath();ctx.moveTo(r*0.8,-r*0.06);ctx.lineTo(r*1.35,r*0.06);ctx.lineTo(r*0.8,r*0.22);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='#cc6d00'; ctx.lineWidth=1.5; ctx.stroke();
-  ctx.restore();
+/* ---- Selector de pájaro ---- */
+function construirPickerPajaro(){ var cont=document.getElementById('pajaroPicker'); cont.innerHTML='';
+  for(var i=0;i<PAJAROS.length;i++){ (function(P){ var desbloq=save.pajaros.indexOf(P.id)!==-1;
+    var d=document.createElement('div'); d.className='pj-op'+(P.id===pajaroSel?' sel':'')+(desbloq?'':' bloq');
+    var cara=P.id==='rojo'?'🐦':P.id==='amarillo'?'🐤':P.id==='negro'?'🐧':'🦅';
+    d.innerHTML=cara+(desbloq?'':'<span class="cand"><i data-lucide="lock" style="width:14px;height:14px"></i></span>');
+    d.onclick=function(){ if(!desbloq){ toast(P.nombre+': '+P.costo+' copas'); return; } pajaroSel=P.id; construirPickerPajaro();
+      if(fase==='aim'){ var pm=paramsPajaro(pajaroSel); bird.r=Math.min(W,H)*0.035*pm.rMul; bird.x=anchor.x; bird.y=anchor.y; }
+      hablar(P.nombre+'. '+P.poder); };
+    cont.appendChild(d); })(PAJAROS[i]); }
+  lucide.createIcons(); }
+
+/* ---- Impacto ---- */
+function resolverPig(p){ if(rondaResuelta) return; fase='resolver';
+  if(p.correcto){ ganarRonda(p); }
+  else { p.shake=1; sonidoMal();
+    if(modo==='racha'){ hablar('¡Ese no! Era '+estado.resultado); falloTiro(); }
+    else { hablar('¡Ese no! Cuenta e inténtalo otra vez.'); falloTiro(); }
+  } }
+
+/* ---- Explosión ---- */
+function estallar(x,y,radius,porBird){
+  sonidoBoom(); explota(x,y,radius); markTNTused();
+  for(var i=0;i<blocks.length;i++){ var b=blocks[i]; if(b.type==='tnt' && b.alpha>0 && dist(x,y,b.x,b.y)<radius+b.w){ b.alpha=0; b.cayendo=true; explota(b.x,b.y,Math.min(W,H)*0.17); } }
+  for(var j=0;j<blocks.length;j++){ var o=blocks[j]; if(o.type==='tnt'||o.cayendo||o.alpha<=0) continue; if(dist(x,y,o.x,o.y)<radius+Math.max(o.w,o.h)*0.5) tumbar(o,x); }
+  var correcto=null, wrong=false;
+  for(var k=0;k<pigs.length;k++){ var p=pigs[k]; if(!p.vivo) continue; if(dist(x,y,p.x,p.y)<radius+p.r){ if(p.correcto) correcto=p; else { wrong=true; p.shake=1; } } }
+  if(correcto && !rondaResuelta){ ganarRonda(correcto); }
+  else if(porBird && !rondaResuelta){ fase='resolver'; sonidoMal(); hablar('¡Uy! Ese no. Inténtalo otra vez.'); falloTiro(); }
 }
+function markTNTused(){ if(!save.tntUsado){ save.tntUsado=true; guardar(); toast('¡Explotaste un TNT!'); revisarLogros(); } }
 
-function drawBlocks(){
-  for(var i=0;i<blockBodies.length;i++){
-    var b=blockBodies[i]; if(!b.gameData) continue;
-    var col=MAT_COLORS[b.gameData.mat]||MAT_COLORS.wood;
-    var w=b.gameData.w, h=b.gameData.h;
-    ctx.save(); ctx.translate(b.position.x,b.position.y); ctx.rotate(b.angle);
-    ctx.fillStyle=intToHex(col.fill);
-    ctx.fillRect(-w/2,-h/2,w,h);
-    ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(-w/2,-h/2,w,h*0.4);
-    ctx.strokeStyle=intToHex(col.stroke); ctx.lineWidth=2; ctx.strokeRect(-w/2,-h/2,w,h);
-    if(b.gameData.mat==='tnt'){
-      ctx.fillStyle='#fff'; ctx.font='bold '+Math.floor(h*0.4)+'px Comic Sans MS';
-      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('TNT',0,0);
-    }
-    ctx.restore();
-  }
+/* ---- Resultado de ronda ---- */
+function ganarRonda(pig){
+  if(rondaResuelta) return; rondaResuelta=true; fase='resolver';
+  pig.vivo=false; pig.vx=(Math.random()*6+4); pig.vy=-(Math.random()*8+8);
+  explota(pig.x,pig.y, Math.min(W,H)*0.13);
+  for(var i=0;i<blocks.length;i++){ var b=blocks[i]; if(b.type!=='tnt' && Math.abs(b.x-pig.x)<pig.r*2 && !b.cayendo) tumbar(b,pig.x); }
+  sonidoBoom(); sonidoVictoria(); lanzarConfeti();
+  rachaActual++; save.aciertosTotales++; if(rachaActual>save.rachaMax) save.rachaMax=rachaActual; guardar();
+  var elogios=['¡Muy bien','¡Excelente','¡Campeón','¡Genial','¡Súper','¡Increíble']; var el=elogios[rnd(0,elogios.length-1)]+', '+(save.nombre||'Alejo')+'!';
+  if(modo==='aventura'){ if(!rondaFallada) primerIntento++;
+    actualizarEstrellasHud();
+    hablarAcierto(el+' '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+' es '+estado.resultado);
+    setTimeout(avanzarRonda, 1500);
+  } else if(modo==='racha'){
+    hablarAcierto(el+' '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+' es '+estado.resultado);
+    rachaAcierto();
+  } else { mostrarCartelLibre(el); }
+  revisarLogros(); refrescarChips();
 }
+function avanzarRonda(){ rondaActual++; if(rondaActual>=RONDAS_POR_RETO) finReto(); else nuevaRondaAventura(); }
 
-function drawPigs(){
-  for(var i=0;i<pigBodies.length;i++){
-    var pg=pigBodies[i]; if(!pg.gameData) continue;
-    var x=pg.position.x, y=pg.position.y, r=pg.gameData.r;
-    ctx.save(); ctx.translate(x,y); ctx.rotate(pg.angle);
-    if(pg.gameData.vivo){
-      // Orejas
-      ctx.fillStyle='#3f9e43';ctx.beginPath();ctx.arc(-r*0.55,-r*0.7,r*0.28,0,7);ctx.fill();ctx.beginPath();ctx.arc(r*0.55,-r*0.7,r*0.28,0,7);ctx.fill();
-      // Cuerpo
-      ctx.fillStyle='#4caf50';ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fill();
-      ctx.strokeStyle='#2f7d33';ctx.lineWidth=2;ctx.stroke();
-      // Hocico
-      ctx.fillStyle='#7bc943';ctx.beginPath();ctx.ellipse(0,r*0.28,r*0.45,r*0.35,0,0,7);ctx.fill();
-      ctx.fillStyle='#2f7d33';ctx.beginPath();ctx.ellipse(-r*0.15,r*0.28,r*0.07,r*0.11,0,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(r*0.15,r*0.28,r*0.07,r*0.11,0,0,7);ctx.fill();
-      // Ojos
-      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-r*0.3,-r*0.15,r*0.24,0,7);ctx.fill();ctx.beginPath();ctx.arc(r*0.3,-r*0.15,r*0.24,0,7);ctx.fill();
-      ctx.fillStyle='#222';ctx.beginPath();ctx.arc(-r*0.24,-r*0.12,r*0.11,0,7);ctx.fill();ctx.beginPath();ctx.arc(r*0.36,-r*0.12,r*0.11,0,7);ctx.fill();
-      // Cejas
-      ctx.strokeStyle='#2f7d33';ctx.lineWidth=r*0.1;ctx.lineCap='round';
-      ctx.beginPath();ctx.moveTo(-r*0.55,-r*0.5);ctx.lineTo(-r*0.1,-r*0.38);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(r*0.55,-r*0.5);ctx.lineTo(r*0.1,-r*0.38);ctx.stroke();
-    } else { ctx.font=(r*2)+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('💫',0,0); }
-    ctx.restore();
-    // Cartel
-    if(pg.gameData.vivo){
-      var bw=r*1.8, bh=r*1.2, by=y-r*2.2;
-      ctx.strokeStyle='#c98a3c';ctx.lineWidth=r*0.12;ctx.beginPath();ctx.moveTo(x,by+bh/2);ctx.lineTo(x,y-r*0.8);ctx.stroke();
-      ctx.fillStyle='#fff';ctx.strokeStyle='#ff9500';ctx.lineWidth=3;
-      roundRect(ctx,x-bw/2,by-bh/2,bw,bh,8);ctx.fill();ctx.stroke();
-      ctx.fillStyle='#073b5c';ctx.font='bold '+Math.floor(r*1.1)+'px Comic Sans MS';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(String(pg.gameData.num),x,by);
-    }
-  }
+function falloTiro(){
+  if(modo==='racha'){ rachaFallo(); return; }
+  rachaActual=0; if(modo==='aventura') rondaFallada=true;
+  setTimeout(function(){ var pm=paramsPajaro(pajaroSel); bird={x:anchor.x,y:anchor.y,vx:0,vy:0,r:Math.min(W,H)*0.035*pm.rMul,angle:0}; dashUsado=false; bombaUsada=false; fase='aim'; }, 700); }
+
+function actualizarEstrellasHud(){ var e=document.getElementById('numEstrellas'); if(e) e.textContent=primerIntento; }
+
+/* ---- Fin de reto ---- */
+function finReto(){
+  var trofeo = primerIntento>=5?'copa': primerIntento>=4?'oro': primerIntento>=3?'plata':'bronce';
+  var estrellas = primerIntento>=5?3: primerIntento>=3?2:1;
+  var key=retoKey(retoMundo,retoIdx); var prev=save.retos[key];
+  var rank={bronce:1,plata:2,oro:3,copa:4};
+  if(!prev || rank[trofeo]>rank[prev.trofeo]){ save.retos[key]={trofeo:trofeo, estrellas:estrellas, completado:true}; }
+  var ganaCopas = trofeo==='copa'?2 : trofeo==='oro'?1 : 0;
+  if(!prev){ save.copas+=ganaCopas; if(trofeo==='copa') save.copasPerfectas++; }
+  else { var prevCopas=prev.trofeo==='copa'?2:prev.trofeo==='oro'?1:0; if(ganaCopas>prevCopas){ save.copas+=(ganaCopas-prevCopas); if(trofeo==='copa'&&prev.trofeo!=='copa') save.copasPerfectas++; } }
+  if(mundoTerminado(retoMundo) && save.mundoDesbloqueado<retoMundo+1 && retoMundo+1<MUNDOS.length){ save.mundoDesbloqueado=retoMundo+1; toast('¡Nuevo mundo: '+MUNDOS[retoMundo+1].emoji+' '+MUNDOS[retoMundo+1].nombre+'!'); }
+  for(var i=0;i<PAJAROS.length;i++){ var P=PAJAROS[i]; if(save.pajaros.indexOf(P.id)===-1 && save.copas>=P.costo){ save.pajaros.push(P.id); toast('¡Pájaro nuevo: '+P.nombre+'!'); } }
+  guardar(); revisarLogros(); refrescarChips();
+  document.getElementById('trofeoEmoji').textContent=trofeoEmoji(trofeo);
+  document.getElementById('trofeoTxt').textContent = trofeo==='copa'?'¡PERFECTO! 🏆':'¡Reto completado!';
+  document.getElementById('trofeoEstrellas').textContent='⭐'.repeat(estrellas)+'☆'.repeat(3-estrellas);
+  document.getElementById('trofeoDetalle').textContent=primerIntento+' de '+RONDAS_POR_RETO+' a la primera';
+  document.getElementById('cartelTrofeo').classList.add('active');
+  sonidoTrofeo(); lanzarConfeti(); setTimeout(lanzarConfeti,400);
+  hablar((trofeo==='copa'?'¡Perfecto! Ganaste una copa. ':'¡Reto completado! ')+'Lograste '+primerIntento+' de '+RONDAS_POR_RETO);
 }
+function volverAlMapa(){ document.getElementById('cartelTrofeo').classList.remove('active'); renderMapa(); mostrar('sMapa'); lucide.createIcons(); }
 
-/* ---- Helpers graficos ---- */
-function intToHex(n){return '#'+('000000'+(n||0).toString(16)).slice(-6);}
-function getBirdHex(){
-  if(GS.pajaroSel==='rojo') return save.colorPajaro||'#d62828';
-  for(var i=0;i<PAJAROS.length;i++){if(PAJAROS[i].id===GS.pajaroSel) return intToHex(PAJAROS[i].color);}
-  return '#d62828';
-}
-function shadeColor(hex,amt){try{var c=hex.replace('#','');if(c.length===3)c=c[0]+c[0]+c[1]+c[1]+c[2]+c[2];var r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);
-  r=Math.max(0,Math.min(255,r+amt));g=Math.max(0,Math.min(255,g+amt));b=Math.max(0,Math.min(255,b+amt));return'rgb('+r+','+g+','+b+')';}catch(e){return hex;}}
-function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function mostrarCartelLibre(el){ var signo=estado.tipo==='suma'?'+':'−';
+  document.getElementById('cartelOpL').textContent=estado.a+' '+signo+' '+estado.b+' = '+estado.resultado;
+  document.getElementById('cartelTxtL').textContent=el;
+  var car=['🐦','🥳','🏆','🙌','🎉']; document.getElementById('mFestejaL').textContent=car[rnd(0,car.length-1)];
+  document.getElementById('cartelLibre').classList.add('active');
+  hablarAcierto(el+' '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+' es '+estado.resultado); }
 
-/* ---- Otros ---- */
-function volverAlMapa(){document.getElementById('cartelTrofeo').classList.remove('active');renderMapa();mostrar('sMapa');lucide.createIcons();}
-
-/* ---- Panel de conteo ---- */
+/* ---- Panel de conteo (ayuda) ---- */
 var conteoN=0;
-function abrirConteo(){conteoN=0;var zona=document.getElementById('conteoZona');zona.innerHTML='';var titulo=document.getElementById('conteoTitulo');var num=document.getElementById('conteoNum');
-  if(GS.estado.tipo==='suma'){titulo.textContent='Toca y cuenta TODO: '+GS.estado.a+' + '+GS.estado.b;num.textContent='0';
-    var e1=EMOJIS[rnd(0,EMOJIS.length-1)],e2=EMOJIS[rnd(0,EMOJIS.length-1)];if(e2===e1)e2=EMOJIS[(EMOJIS.indexOf(e1)+1)%EMOJIS.length];
-    var g1=document.createElement('div');g1.className='cgrupo';for(var i=0;i<GS.estado.a;i++)g1.appendChild(crearObj(e1));
-    var mas=document.createElement('div');mas.className='cmas';mas.textContent='+';var g2=document.createElement('div');g2.className='cgrupo g2';for(var j=0;j<GS.estado.b;j++)g2.appendChild(crearObj(e2));
-    zona.appendChild(g1);zona.appendChild(mas);zona.appendChild(g2);
-  }else{titulo.textContent='Tienes '+GS.estado.a+'. Quita '+GS.estado.b;num.textContent='0';
-    var em=EMOJIS[rnd(0,EMOJIS.length-1)];var g=document.createElement('div');g.className='cgrupo';for(var k=0;k<GS.estado.a;k++)g.appendChild(crearObj(em,true));zona.appendChild(g);}
-  document.getElementById('panelConteo').classList.add('active');}
-function crearObj(emoji,quitar){var d=document.createElement('div');d.className='cobj';d.textContent=emoji;
-  d.addEventListener('click',function(){var titulo=document.getElementById('conteoTitulo');var num=document.getElementById('conteoNum');
-    if(quitar){if(d.classList.contains('quitado'))return;if(conteoN>=GS.estado.b)return;d.classList.add('quitado');d.style.opacity=.2;d.style.pointerEvents='none';d.style.transform='scale(.7) rotate(12deg)';
-      conteoN++;sonidoToque(conteoN);num.textContent=conteoN;
-      if(conteoN>=GS.estado.b){var quedan=GS.estado.a-GS.estado.b;titulo.textContent='¡Quitaste '+GS.estado.b+'! Quedan '+quedan;num.textContent=quedan;
-        var vivos=document.querySelectorAll('#conteoZona .cobj:not(.quitado)');for(var i=0;i<vivos.length;i++)vivos[i].classList.add('ok');setTimeout(function(){hablar('Quitaste '+GS.estado.b+'. Quedan '+quedan);},300);
-      }else{titulo.textContent='Vas '+conteoN+'. Quita '+(GS.estado.b-conteoN)+' más';hablar(String(conteoN));}
-    }else{if(d.classList.contains('ok'))return;d.classList.add('ok');conteoN++;sonidoToque(conteoN);num.textContent=conteoN;hablar(String(conteoN));
-      if(conteoN>=GS.estado.a+GS.estado.b){titulo.textContent='¡En total son '+conteoN+'!';}}});
-  return d;}
-function cerrarConteo(){document.getElementById('panelConteo').classList.remove('active');}
+function abrirConteo(){ conteoN=0; var zona=document.getElementById('conteoZona'); zona.innerHTML=''; var titulo=document.getElementById('conteoTitulo'); var num=document.getElementById('conteoNum');
+  if(estado.tipo==='suma'){ titulo.textContent='Toca y cuenta TODO: '+estado.a+' + '+estado.b; num.textContent='0';
+    var e1=EMOJIS[rnd(0,EMOJIS.length-1)], e2=EMOJIS[rnd(0,EMOJIS.length-1)]; if(e2===e1) e2=EMOJIS[(EMOJIS.indexOf(e1)+1)%EMOJIS.length];
+    var g1=document.createElement('div'); g1.className='cgrupo'; for(var i=0;i<estado.a;i++) g1.appendChild(crearObj(e1));
+    var mas=document.createElement('div'); mas.className='cmas'; mas.textContent='+'; var g2=document.createElement('div'); g2.className='cgrupo g2'; for(var j=0;j<estado.b;j++) g2.appendChild(crearObj(e2));
+    zona.appendChild(g1); zona.appendChild(mas); zona.appendChild(g2);
+  } else { titulo.textContent='Tienes '+estado.a+'. Quita '+estado.b; num.textContent='0';
+    var em=EMOJIS[rnd(0,EMOJIS.length-1)]; var g=document.createElement('div'); g.className='cgrupo'; for(var k=0;k<estado.a;k++) g.appendChild(crearObj(em,true)); zona.appendChild(g); }
+  document.getElementById('panelConteo').classList.add('active'); }
+function crearObj(emoji,quitar){ var d=document.createElement('div'); d.className='cobj'; d.textContent=emoji;
+  d.addEventListener('click',function(){ var titulo=document.getElementById('conteoTitulo'); var num=document.getElementById('conteoNum');
+    if(quitar){ if(d.classList.contains('quitado')) return; if(conteoN>=estado.b) return; d.classList.add('quitado'); d.style.opacity=.2; d.style.pointerEvents='none'; d.style.transform='scale(.7) rotate(12deg)';
+      conteoN++; sonidoToque(conteoN); num.textContent=conteoN;
+      if(conteoN>=estado.b){ var quedan=estado.a-estado.b; titulo.textContent='¡Quitaste '+estado.b+'! Quedan '+quedan; num.textContent=quedan;
+        var vivos=document.querySelectorAll('#conteoZona .cobj:not(.quitado)'); for(var i=0;i<vivos.length;i++) vivos[i].classList.add('ok'); setTimeout(function(){ hablar('Quitaste '+estado.b+'. Quedan '+quedan); },300);
+      } else { titulo.textContent='Vas '+conteoN+'. Quita '+(estado.b-conteoN)+' más'; hablar(String(conteoN)); }
+    } else { if(d.classList.contains('ok')) return; d.classList.add('ok'); conteoN++; sonidoToque(conteoN); num.textContent=conteoN; hablar(String(conteoN));
+      if(conteoN>=estado.a+estado.b){ titulo.textContent='¡En total son '+conteoN+'!'; } } });
+  return d; }
+function cerrarConteo(){ document.getElementById('panelConteo').classList.remove('active'); }
