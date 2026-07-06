@@ -43,11 +43,7 @@ function perderVida(){
     setTimeout(function(){ mostrarGameOver(); }, 800);
   } else {
     hablar('¡Ese no! Inténtalo otra vez. Te quedan '+vidas+' vidas');
-    setTimeout(function(){
-      var pm=paramsPajaro(pajaroSel);
-      bird={x:anchor.x,y:anchor.y,vx:0,vy:0,r:Math.min(W,H)*0.035*pm.rMul,angle:0};
-      dashUsado=false; bombaUsada=false; birdBounced=false; fase='aim';
-    }, 700);
+    setTimeout(resetBirdMatter, 700);
   }
 }
 function actualizarVidasHud(){
@@ -282,6 +278,109 @@ function colocarEscena(){
     blocks.push(nuevoBloque(tntP.x+pr*(Math.random()>0.5?1.2:-1.2), tntP.y+pr*0.2, pr*0.7, pr*0.7, 'tnt'));
   }
 
+  if(typeof syncMatter==='function') syncMatter();
+}
+
+/* ============================================================
+   OBSTACULOS DE MUNDO — generacion por tema + dificultad
+============================================================ */
+var RUTAS_MUNDO={
+  pradera:  [],
+  desierto: ['viento','lento'],
+  nieve:    ['boost','lento','rebote'],
+  volcan:   ['impulso','rebote','miniTnt'],
+  playa:    ['viento','rebote'],
+  noche:    ['niebla','rebote','viento']
+};
+
+function colocarObstaculosMundo(cc,dif){
+  var tema=cfgActual.tema;
+  var rutas=RUTAS_MUNDO[tema];
+  if(!rutas||!rutas.length) return;
+  var s=Math.min(W,H);
+
+  // Cuantos obstaculos: 1 en facil, 2-3 en dificil
+  var nObs=dif<=1?1:dif<=2?rnd(1,2):rnd(2,3);
+
+  // Primero el obstaculo clave (entre resortera y cerdo correcto)
+  var primario=rutas[0];
+  crearObstaculo(primario,cc,dif,tema,true);
+
+  // Obstaculos secundarios
+  for(var i=1;i<nObs&&i<rutas.length;i++){
+    crearObstaculo(rutas[i],cc,dif,tema,false);
+  }
+}
+
+function crearObstaculo(tipo,cc,dif,tema,esClave){
+  var s=Math.min(W,H);
+  // Punto medio entre resortera y cerdo correcto
+  var t=esClave?(0.35+Math.random()*0.15):(0.25+Math.random()*0.3);
+  var midX=anchor.x+(cc.x-anchor.x)*t;
+  var midY=anchor.y+(cc.y-anchor.y)*t;
+  // Secundarios se desplazan para no solapar el clave
+  if(!esClave){ midX+=s*(Math.random()-0.5)*0.15; midY+=s*(Math.random()-0.5)*0.1; }
+  // Clamp dentro de pantalla
+  midX=Math.max(W*0.25,Math.min(W*0.75,midX));
+  midY=Math.max(groundY*0.2,Math.min(groundY*0.85,midY));
+
+  var mov=dif>=3&&Math.random()>0.5; // movimiento en dificultad alta
+
+  if(tipo==='viento'){
+    var dirX=cc.x>midX?1:-1;
+    var dirY=cc.y<midY?-1:0.3;
+    var o={x:midX,y:midY,w:s*0.12,h:s*0.16,tipo:'viento',
+      fx:dirX*(0.06+dif*0.015), fy:dirY*(0.08+dif*0.01),
+      color:tema==='playa'?'#80c0ff':tema==='noche'?'#c0a0ff':'#ffe14d',activo:true};
+    if(mov){ o.movY=0.4+Math.random()*0.3; o.limArriba=midY-s*0.08; o.limAbajo=midY+s*0.08; }
+    obstaculos.push(o);
+  }
+  else if(tipo==='lento'){
+    var o={x:midX,y:midY,w:s*0.11,h:s*0.09,tipo:'lento',
+      fuerza:0.90-dif*0.03,
+      color:tema==='nieve'?'#d0e8ff':'#c9a43c',activo:true};
+    if(mov){ o.movX=0.3+Math.random()*0.3; o.limIzq=midX-s*0.06; o.limDer=midX+s*0.06; }
+    obstaculos.push(o);
+  }
+  else if(tipo==='boost'){
+    var bx=W*0.30+Math.random()*W*0.12;
+    var by=groundY-s*0.06-Math.random()*s*0.04;
+    obstaculos.push({x:bx,y:by,w:s*0.16,h:s*0.035,tipo:'boost',
+      mulX:1.05+dif*0.02, color:'#b8e8f8',activo:true});
+  }
+  else if(tipo==='impulso'){
+    var ix=W*0.35+Math.random()*W*0.12;
+    var iy=groundY-s*0.12;
+    var o={x:ix,y:iy,w:s*0.055,h:s*0.12,tipo:'impulso',
+      impulsoY:-4.5-dif*0.7, color:'#ff5a1f',activo:true};
+    if(mov){ o.movX=0.5; o.limIzq=ix-s*0.06; o.limDer=ix+s*0.06; }
+    obstaculos.push(o);
+  }
+  else if(tipo==='rebote'){
+    var rx=esClave?midX:W*(0.38+Math.random()*0.2);
+    var ry=esClave?midY:groundY*(0.35+Math.random()*0.3);
+    var o={x:rx,y:ry,r:s*0.025+dif*s*0.005,tipo:'rebote',
+      fuerza:0.75+dif*0.05,
+      color:tema==='volcan'?'#6a3030':tema==='noche'?'#f5f3c0':'#8a929c',
+      borde:tema==='volcan'?'#ff5a1f':tema==='noche'?'#ffd23f':'#5c636b',activo:true};
+    if(mov){ o.movY=0.4; o.limArriba=ry-s*0.06; o.limAbajo=ry+s*0.06; }
+    obstaculos.push(o);
+  }
+  else if(tipo==='miniTnt'){
+    // Colocar cerca de un cerdo incorrecto
+    var incs=[]; for(var i=0;i<pigs.length;i++) if(!pigs[i].correcto) incs.push(pigs[i]);
+    var tgt=incs[rnd(0,incs.length-1)];
+    obstaculos.push({x:tgt.x+(Math.random()>0.5?1:-1)*s*0.045,
+      y:tgt.y+s*0.015,r:s*0.014,tipo:'miniTnt',
+      radio:s*0.07+dif*s*0.015,activo:true});
+  }
+  else if(tipo==='niebla'){
+    // En la ruta de vuelo, nunca sobre los numeros de cerdos
+    var nx=W*0.38+Math.random()*W*0.15;
+    var ny=groundY*0.3+Math.random()*groundY*0.2;
+    obstaculos.push({x:nx,y:ny,r:s*0.07+dif*s*0.015,
+      tipo:'niebla',color:'#2a2040',revelado:false,activo:true});
+  }
 }
 
 /* ---- Selector de pájaro ---- */
@@ -291,7 +390,7 @@ function construirPickerPajaro(){ var cont=document.getElementById('pajaroPicker
     var cara=P.id==='rojo'?'🐦':P.id==='amarillo'?'🐤':P.id==='negro'?'🐧':'🦅';
     d.innerHTML=cara+(desbloq?'':'<span class="cand"><i data-lucide="lock" style="width:14px;height:14px"></i></span>');
     d.onclick=function(){ if(!desbloq){ toast(P.nombre+': '+P.costo+' copas'); return; } pajaroSel=P.id; construirPickerPajaro();
-      if(fase==='aim'){ var pm=paramsPajaro(pajaroSel); bird.r=Math.min(W,H)*0.035*pm.rMul; bird.x=anchor.x; bird.y=anchor.y; }
+      if(fase==='aim'){ var pm=paramsPajaro(pajaroSel); bird.r=Math.min(W,H)*0.035*pm.rMul; bird.x=anchor.x; bird.y=anchor.y; if(typeof syncMatter==='function') syncMatter(); }
       hablar(P.nombre+'. '+P.poder); };
     cont.appendChild(d); })(PAJAROS[i]); }
   lucide.createIcons(); }
@@ -335,8 +434,7 @@ function ganarRonda(pig){
 function avanzarRonda(){ rondaActual++; if(rondaActual>=RONDAS_POR_RETO) finReto(); else nuevaRondaAventura(); }
 
 function falloTiro(){
-  // Suelo o fuera de pantalla — solo resetea pajaro, NO pierde vida
-  setTimeout(function(){ var pm=paramsPajaro(pajaroSel); bird={x:anchor.x,y:anchor.y,vx:0,vy:0,r:Math.min(W,H)*0.035*pm.rMul,angle:0}; dashUsado=false; bombaUsada=false; fase='aim'; }, 700);
+  setTimeout(resetBirdMatter, 700);
 }
 
 
@@ -375,7 +473,7 @@ function abrirConteo(){
   conteoEsSuma=estado.tipo==='suma';
   var signo=conteoEsSuma?'+':'−';
 
-  titulo.textContent=conteoEsSuma?'Sumale a '+a:'Quitale a '+a;
+  titulo.textContent=conteoEsSuma?'Sumale '+b+' a '+a:'Quitale '+b+' a '+a;
   num.textContent=String(a);
 
   // Operacion visual: "5 + [0]"

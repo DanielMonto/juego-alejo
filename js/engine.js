@@ -1,16 +1,118 @@
 /* ============================================================
-   ENGINE — Canvas, física, dibujo, puntería
+   ENGINE — Canvas, Matter.js physics, drawing
 ============================================================ */
+
+/* -- Matter.js aliases -- */
+var MEngine=Matter.Engine, MBody=Matter.Body, MBodies=Matter.Bodies,
+    MComposite=Matter.Composite, MConstraint=Matter.Constraint,
+    MMouse=Matter.Mouse, MMouseConstraint=Matter.MouseConstraint,
+    MEvents=Matter.Events;
 
 var cv,ctx,W,H,groundY,anchor,raf=null;
 var bird,pigs,blocks,particulas,estrellasFondo=[],explosiones=[],rastro=[],obstaculos=[];
 var fase='aim', aiming=false, tAnim=0, dashActivo=0, birdBounced=false;
 var K=0.26, G, MAXPULL;
 
-function ajustarLienzo(){ cv=document.getElementById('lienzo'); W=cv.clientWidth; H=cv.clientHeight; cv.width=W; cv.height=H;
-  ctx=cv.getContext('2d'); groundY=H*0.80; anchor={x:W*0.16, y:groundY-Math.min(W,H)*0.30}; }
+/* -- Matter.js state -- */
+var mEngine,mBird,mElastic,mMouse,mMouseConstraint;
+var M_AIM=0x0002;
 
-/* ---- Helpers de física ---- */
+function ajustarLienzo(){
+  cv=document.getElementById('lienzo');
+  W=cv.parentElement.clientWidth; H=cv.parentElement.clientHeight;
+  cv.width=W; cv.height=H;
+  ctx=cv.getContext('2d');
+  groundY=H*0.80; anchor={x:W*0.16, y:groundY-Math.min(W,H)*0.30};
+  MAXPULL=Math.min(W,H)*0.34;
+  initMatter();
+}
+
+function initMatter(){
+  if(mEngine){ MEvents.off(mEngine); MComposite.clear(mEngine.world,false,true); }
+  mEngine=MEngine.create({gravity:{x:0,y:0}});
+  mMouse=MMouse.create(cv);
+  mMouseConstraint=MMouseConstraint.create(mEngine,{
+    mouse:mMouse,
+    collisionFilter:{category:M_AIM,mask:M_AIM},
+    constraint:{stiffness:0.2,render:{visible:false}}
+  });
+  MComposite.add(mEngine.world,mMouseConstraint);
+  MEvents.on(mEngine,'beforeUpdate',mBeforeUpdate);
+}
+
+function syncMatter(){
+  if(!mEngine) return;
+  if(mBird) MComposite.remove(mEngine.world,mBird);
+  if(mElastic) MComposite.remove(mEngine.world,mElastic);
+  mBird=MBodies.circle(anchor.x,anchor.y,bird.r*2.5,{
+    density:0.004,restitution:0.4,friction:0.1,frictionAir:0,
+    collisionFilter:{category:M_AIM,mask:M_AIM}
+  });
+  mElastic=MConstraint.create({
+    pointA:{x:anchor.x,y:anchor.y},bodyB:mBird,
+    length:0.01,damping:0.01,stiffness:0.05
+  });
+  MComposite.add(mEngine.world,[mBird,mElastic]);
+  aiming=false;
+}
+
+function resetBirdMatter(){
+  var pm=paramsPajaro(pajaroSel);
+  bird={x:anchor.x,y:anchor.y,vx:0,vy:0,r:Math.min(W,H)*0.035*pm.rMul,angle:0};
+  dashUsado=false; bombaUsada=false; birdBounced=false;
+  syncMatter();
+  fase='aim';
+}
+
+/* ---- Matter beforeUpdate: aim clamping + launch detection ---- */
+function mBeforeUpdate(){
+  if(!mBird||fase!=='aim') return;
+  // Case 1: mouse is dragging bird
+  if(mMouseConstraint.body===mBird){
+    if(!aiming && typeof initAudio==='function') initAudio();
+    aiming=true;
+    var dx=mBird.position.x-anchor.x, dy=mBird.position.y-anchor.y;
+    var d=Math.sqrt(dx*dx+dy*dy);
+    if(d>MAXPULL) MBody.setPosition(mBird,{x:anchor.x+dx/d*MAXPULL,y:anchor.y+dy/d*MAXPULL});
+    if(mBird.position.x>anchor.x) MBody.setPosition(mBird,{x:anchor.x,y:mBird.position.y});
+    if(mBird.position.y>groundY-bird.r*0.8) MBody.setPosition(mBird,{x:mBird.position.x,y:groundY-bird.r*0.8});
+    bird.x=mBird.position.x; bird.y=mBird.position.y;
+    bird.angle=Math.atan2(anchor.y-bird.y,anchor.x-bird.x);
+  }
+  // Case 2: mouse just released after aiming
+  else if(aiming && mMouse.button===-1){
+    aiming=false;
+    var dx2=anchor.x-mBird.position.x, dy2=anchor.y-mBird.position.y;
+    var d2=Math.sqrt(dx2*dx2+dy2*dy2);
+    if(d2<10){
+      MBody.setPosition(mBird,{x:anchor.x,y:anchor.y});
+      MBody.setVelocity(mBird,{x:0,y:0});
+      bird.x=anchor.x; bird.y=anchor.y;
+      return;
+    }
+    var pm=paramsPajaro(pajaroSel);
+    if(mElastic){ MComposite.remove(mEngine.world,mElastic); mElastic=null; }
+    mBird.collisionFilter={category:0x0001,mask:0x0001};
+    MBody.setVelocity(mBird,{x:dx2*K*pm.kMul,y:dy2*K*pm.kMul});
+    fase='fly';
+    if(typeof sonidoLanzar==='function') sonidoLanzar();
+  }
+}
+
+/* ---- Power click (dash/bomba during fly) ---- */
+function onPowerClick(e){
+  if(typeof initAudio==='function') initAudio();
+  if(fase!=='fly') return;
+  var pm=paramsPajaro(pajaroSel);
+  if(pm.dash&&!dashUsado){ dashUsado=true; dashActivo=12; bird.vx*=1.7; bird.vy*=1.05;
+    MBody.setVelocity(mBird,{x:bird.vx,y:bird.vy});
+    sonidoLanzar(); beep(1100,0.12,'square');
+    for(var d=0;d<16;d++){ particulas.push({x:bird.x,y:bird.y,vx:-Math.cos(bird.angle)*(Math.random()*7+3)+(Math.random()-0.5)*3,vy:-Math.sin(bird.angle)*(Math.random()*7+3)+(Math.random()-0.5)*3,r:Math.random()*4+2,color:'#ffe14d',vida:14,vidaMax:14,g:0.05,fuego:true}); }
+    e.preventDefault(); return; }
+  if(pm.bomba&&!bombaUsada){ bombaUsada=true; estallar(bird.x,bird.y,Math.min(W,H)*0.16,true); e.preventDefault(); return; }
+}
+
+/* ---- Helpers ---- */
 function dist(x1,y1,x2,y2){ var dx=x1-x2,dy=y1-y2; return Math.sqrt(dx*dx+dy*dy); }
 function tumbar(b,fromX){ b.cayendo=true; b.vx=(b.x>=fromX?1:-1)*(Math.random()*4+1); b.vy=-Math.random()*4; b.vrot=(Math.random()-0.5)*0.3; }
 function sombra(hex,amt){ try{ var c=hex.replace('#',''); if(c.length===3) c=c[0]+c[0]+c[1]+c[1]+c[2]+c[2]; var r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);
@@ -27,7 +129,6 @@ function dibujarObstaculo(o){
   } else if(o.tipo==='viento'){
     ctx.globalAlpha=0.2+0.12*Math.sin(tAnim*0.08);
     ctx.fillStyle=o.color||'#ffe14d'; ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
-    // Lineas onduladas animadas
     ctx.globalAlpha=0.4; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
     for(var l=0;l<3;l++){
       var ly=-o.h*0.3+l*o.h*0.3, offset=Math.sin(tAnim*0.06+l)*o.w*0.1;
@@ -42,17 +143,14 @@ function dibujarObstaculo(o){
     for(var p=0;p<5;p++) ctx.fillRect(-o.w*0.3+p*o.w*0.15,-o.h*0.05,3,3);
     ctx.globalAlpha=1;
   } else if(o.tipo==='boost'){
-    // Placa de hielo brillante
     ctx.globalAlpha=0.35; ctx.fillStyle=o.color||'#b8e8f8';
     ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
     ctx.globalAlpha=0.7; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
     ctx.strokeRect(-o.w/2,-o.h/2,o.w,o.h);
-    // Flechas de velocidad
     ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='bold '+Math.floor(o.h*0.5)+'px sans-serif';
     ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('>>',0,0);
     ctx.globalAlpha=1;
   } else if(o.tipo==='impulso'){
-    // Chorro de lava
     ctx.globalAlpha=0.4+0.2*Math.sin(tAnim*0.12);
     ctx.fillStyle=o.color||'#ff5a1f'; ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
     ctx.fillStyle='#ffe14d'; ctx.globalAlpha=0.3+0.2*Math.sin(tAnim*0.15);
@@ -64,7 +162,6 @@ function dibujarObstaculo(o){
     ctx.fillStyle='#ffe14d'; ctx.globalAlpha=0.5+0.3*Math.sin(tAnim*0.2);
     ctx.beginPath(); ctx.arc(0,-o.r*0.8,4,0,7); ctx.fill(); ctx.globalAlpha=1;
   } else if(o.tipo==='niebla'){
-    // Nube oscura — se transparenta si revelada
     ctx.globalAlpha=o.revelado?0.15:0.7;
     ctx.fillStyle=o.color||'#2a2040';
     ctx.beginPath(); ctx.arc(0,0,o.r||o.w*0.5,0,7); ctx.fill();
@@ -87,87 +184,94 @@ function explota(x,y,size){ size=size||Math.min(W,H)*0.12;
   for(var i=0;i<24;i++){ var a=Math.random()*6.283, sp=Math.random()*9+3; particulas.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2,r:Math.random()*5+3,color:fuego[rnd(0,fuego.length-1)],vida:rnd(16,32),vidaMax:32,g:0.22,fuego:true}); }
   for(var s=0;s<7;s++){ particulas.push({x:x+(Math.random()-0.5)*size*0.4,y:y-Math.random()*size*0.2,vx:(Math.random()-0.5)*2,vy:-Math.random()*2-1,r:Math.random()*7+5,vida:rnd(28,50),vidaMax:50,g:-0.03,humo:true}); } }
 
-/* ---- Bucle principal ---- */
-function bucle(){ G=H*0.0011*paramsPajaro(pajaroSel).gMul; MAXPULL=Math.min(W,H)*0.34; tAnim++; actualizar(); dibujar(); raf=requestAnimationFrame(bucle); }
+/* ============ GAME LOOP ============ */
+function bucle(){ G=H*0.0011*paramsPajaro(pajaroSel).gMul; MAXPULL=Math.min(W,H)*0.34; tAnim++;
+  MEngine.update(mEngine,1000/60);
+  actualizar(); dibujar(); raf=requestAnimationFrame(bucle); }
 
 function actualizar(){
   if(fase==='aim'){ bird.angle= aiming ? Math.atan2(anchor.y-bird.y, anchor.x-bird.x) : 0; }
-  if(fase==='fly'){ bird.x+=bird.vx; bird.y+=bird.vy; bird.vy+=G; bird.angle=Math.atan2(bird.vy,bird.vx);
+  if(fase==='fly'){
+    if(!mBird) return;
+    // Apply custom gravity
+    var vel=mBird.velocity;
+    MBody.setVelocity(mBird,{x:vel.x,y:vel.y+G});
+    // Sync from Matter
+    bird.x=mBird.position.x; bird.y=mBird.position.y;
+    bird.vx=mBird.velocity.x; bird.vy=mBird.velocity.y;
+    bird.angle=Math.atan2(bird.vy,bird.vx);
     rastro.push({x:bird.x,y:bird.y}); if(rastro.length>16) rastro.shift(); if(dashActivo>0) dashActivo--;
     var pm=paramsPajaro(pajaroSel);
-    // Obstaculos de mundo
+    // Obstacles
     for(var ob=0;ob<obstaculos.length;ob++){
       var o=obstaculos[ob]; if(!o.activo) continue;
       var odx=bird.x-o.x, ody=bird.y-o.y;
       var odist=Math.sqrt(odx*odx+ody*ody);
       var orad=(o.r||o.w*0.5)+bird.r;
       if(odist<orad){
-        if(o.tipo==='rebote'){ // Rebota al pajaro (rocas, hielo, flotador, luna)
-          var nx=odx/odist, ny=ody/odist;
+        if(o.tipo==='rebote'){ var nx=odx/odist, ny=ody/odist;
           var dot=bird.vx*nx+bird.vy*ny;
           bird.vx-=2*dot*nx*(o.fuerza||0.8); bird.vy-=2*dot*ny*(o.fuerza||0.8);
           bird.x=o.x+nx*orad; bird.y=o.y+ny*orad;
+          MBody.setPosition(mBird,{x:bird.x,y:bird.y}); MBody.setVelocity(mBird,{x:bird.vx,y:bird.vy});
           sonidoToque(3);
-        } else if(o.tipo==='viento'){ // Empuja al pajaro (termica, ola, burbuja, estrella)
+        } else if(o.tipo==='viento'){
           bird.vx+=o.fx||0; bird.vy+=o.fy||0;
-        } else if(o.tipo==='lento'){ // Frena al pajaro (arena, copo)
+          MBody.setVelocity(mBird,{x:bird.vx,y:bird.vy});
+        } else if(o.tipo==='lento'){
           bird.vx*=(o.fuerza||0.7); bird.vy*=(o.fuerza||0.7);
-        } else if(o.tipo==='boost'){ // Acelera al pajaro (hielo rapido)
+          MBody.setVelocity(mBird,{x:bird.vx,y:bird.vy});
+        } else if(o.tipo==='boost'){
           bird.vx*=(o.mulX||1.08);
-        } else if(o.tipo==='impulso'){ // Lanza al pajaro (chorro de lava)
-          bird.vy=o.impulsoY||-6; sonidoToque(5);
-        } else if(o.tipo==='miniTnt'){ // Explosion al contacto
+          MBody.setVelocity(mBird,{x:bird.vx,y:bird.vy});
+        } else if(o.tipo==='impulso'){
+          bird.vy=o.impulsoY||-6;
+          MBody.setVelocity(mBird,{x:bird.vx,y:bird.vy});
+          sonidoToque(5);
+        } else if(o.tipo==='miniTnt'){
           o.activo=false; estallar(o.x,o.y,o.radio||Math.min(W,H)*0.1,true);
-        } else if(o.tipo==='niebla'){ // Nube oscura: se revela al pasar
+        } else if(o.tipo==='niebla'){
           o.revelado=true;
         } else if(o.tipo==='portal'){
-          if(o.destX!==undefined){ bird.x=o.destX; bird.y=o.destY; }
+          if(o.destX!==undefined){ bird.x=o.destX; bird.y=o.destY; MBody.setPosition(mBird,{x:bird.x,y:bird.y}); }
         }
       }
-      // Obstaculos moviles
       if(o.movX){ o.x+=o.movX; if(o.x>o.limDer||o.x<o.limIzq) o.movX*=-1; }
       if(o.movY){ o.y+=o.movY; if(o.y>o.limAbajo||o.y<o.limArriba) o.movY*=-1; }
     }
-    // Despues de rebotar, el pajaro no interactua con nada
     if(!birdBounced){
-      // BOMBA: explota al primer contacto
+      // BOMBA
       if(pm.bomba && !bombaUsada){ var toco = bird.y>groundY-bird.r*0.3 && bird.vy>0;
         if(!toco){ for(var q=0;q<blocks.length;q++){ var bq=blocks[q]; if(bq.cayendo||bq.alpha<=0) continue; if(Math.abs(bird.x-bq.x)<bq.w*0.5+bird.r*0.7 && Math.abs(bird.y-bq.y)<bq.h*0.5+bird.r*0.7){ toco=true; break; } } }
         if(!toco){ for(var q2=0;q2<pigs.length;q2++){ var pq=pigs[q2]; if(pq.vivo && dist(bird.x,bird.y,pq.x,pq.y)<pq.r+bird.r){ toco=true; break; } } }
         if(toco){ bombaUsada=true; estallar(bird.x,bird.y, Math.min(W,H)*0.16, true); return; } }
-      // TNT directo
+      // TNT
       for(var t=0;t<blocks.length;t++){ var bl=blocks[t]; if(bl.type==='tnt' && !bl.cayendo && bl.alpha>0){
         if(Math.abs(bird.x-bl.x)<bl.w*0.6+bird.r && Math.abs(bird.y-bl.y)<bl.h*0.6+bird.r){ estallar(bl.x,bl.y, Math.min(W,H)*0.18, true); return; } } }
-      // Arrasar bloques
+      // Blocks
       for(var c=0;c<blocks.length;c++){ var bk=blocks[c]; if(bk.type==='tnt'||bk.cayendo||bk.alpha<=0) continue;
         if(Math.abs(bird.x-bk.x)<bk.w*0.5+bird.r*0.65 && Math.abs(bird.y-bk.y)<bk.h*0.5+bird.r*0.65){
-          tumbar(bk,bird.x); var fr=(bk.type==='stone')?0.86:(bk.type==='ice'?0.9:0.92); if(pajaroSel==='azul') fr=0.97; bird.vx*=fr; bird.vy*=fr; } }
-      // Cerditos: impacto directo
+          tumbar(bk,bird.x); var fr=(bk.type==='stone')?0.86:(bk.type==='ice'?0.9:0.92); if(pajaroSel==='azul') fr=0.97; bird.vx*=fr; bird.vy*=fr;
+          MBody.setVelocity(mBird,{x:bird.vx,y:bird.vy}); } }
+      // Pigs
       for(var i=0;i<pigs.length;i++){ var p=pigs[i]; if(p.vivo){ if(dist(bird.x,bird.y,p.x,p.y) < p.r+bird.r*0.7){ resolverPig(p); return; } } }
     }
-    // Suelo: primer toque = rebota + pierde vida, segundo toque = resetea
+    // Ground
     var tocaSuelo = bird.y>groundY-bird.r*0.3 && bird.vy>0;
     if(tocaSuelo){
       if(!birdBounced){
         birdBounced=true;
-        bird.y=groundY-bird.r*0.3;
-        bird.vy=-Math.abs(bird.vy)*0.4; // rebote
-        bird.vx*=0.5;
+        bird.y=groundY-bird.r*0.3; bird.vy=-Math.abs(bird.vy)*0.4; bird.vx*=0.5;
+        MBody.setPosition(mBird,{x:bird.x,y:bird.y}); MBody.setVelocity(mBird,{x:bird.vx,y:bird.vy});
         fase='resolver'; perderVida();
-        // Despues del rebote, volver a fase fly para que siga moviendose
         setTimeout(function(){ if(fase==='resolver'&&birdBounced) fase='fly'; },100);
       } else {
-        // Segundo toque: desaparece y resetea
         fase='resolver';
-        setTimeout(function(){
-          var pm=paramsPajaro(pajaroSel);
-          bird={x:anchor.x,y:anchor.y,vx:0,vy:0,r:Math.min(W,H)*0.035*pm.rMul,angle:0};
-          dashUsado=false; bombaUsada=false; birdBounced=false; fase='aim';
-        },400);
+        setTimeout(resetBirdMatter,400);
         return;
       }
     }
-    // Fuera de pantalla — pierde vida
+    // Out of bounds
     if(bird.x>W+80 || bird.x<-80){ fase='resolver'; perderVida(); return; }
   }
   for(var j=0;j<pigs.length;j++){ var pg=pigs[j]; if(!pg.vivo){ pg.x+=pg.vx; pg.y+=pg.vy; pg.vy+=G*0.6; pg.rot+=0.2; } if(pg.shake>0){ pg.shake-=0.05; if(pg.shake<0) pg.shake=0; } }
@@ -176,7 +280,7 @@ function actualizar(){
   for(var ex=explosiones.length-1;ex>=0;ex--){ explosiones[ex].t++; if(explosiones[ex].t>explosiones[ex].max) explosiones.splice(ex,1); }
 }
 
-/* ============ DIBUJO ============ */
+/* ============ DRAWING (unchanged) ============ */
 function dibujar(){ ctx.clearRect(0,0,W,H); fondoTema(cfgActual.tema);
   for(var ob=0;ob<obstaculos.length;ob++) dibujarObstaculo(obstaculos[ob]);
   for(var i=0;i<blocks.length;i++){ dibujarBloque(blocks[i]); }
@@ -251,7 +355,7 @@ function dibujarPig(p){ if(!p.vivo && p.y>H+140) return; var bob=p.vivo?Math.sin
     ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-r*0.33,-r*0.18,r*0.27,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(r*0.33,-r*0.18,r*0.27,0,7); ctx.fill();
     ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(-r*0.27,-r*0.14,r*0.13,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(r*0.39,-r*0.14,r*0.13,0,7); ctx.fill();
     ctx.strokeStyle='#2f7d33'; ctx.lineWidth=r*0.12; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(-r*0.58,-r*0.52); ctx.lineTo(-r*0.12,-r*0.4); ctx.stroke(); ctx.beginPath(); ctx.moveTo(r*0.58,-r*0.52); ctx.lineTo(r*0.12,-r*0.4); ctx.stroke();
-  } else { ctx.font=(r*2)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('💫',0,0); }
+  } else { ctx.font=(r*2)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('\uD83D\uDCAB',0,0); }
   ctx.restore();
   if(p.vivo){ var bw=r*1.8, bh=r*1.25, by=p.y-r*2.0+bob; ctx.strokeStyle='#c98a3c'; ctx.lineWidth=r*0.14; ctx.beginPath(); ctx.moveTo(p.x,by+bh/2); ctx.lineTo(p.x,p.y-r*0.8+bob); ctx.stroke();
     ctx.fillStyle='#fff'; ctx.strokeStyle='#ff9500'; ctx.lineWidth=4; roundRect(p.x-bw/2,by-bh/2,bw,bh,12); ctx.fill(); ctx.stroke();
@@ -295,24 +399,9 @@ function dibujarRastro(){ if(fase!=='fly'||rastro.length<2) return; var esAmar=(
     if(esAmar){ ctx.fillStyle=(dashActivo>0?'#fff6b0':'#ffd23f'); ctx.shadowBlur=12; ctx.shadowColor='#ffd23f'; } else ctx.fillStyle=col;
     ctx.beginPath(); ctx.arc(q.x,q.y, bird.r*0.55*a+1,0,7); ctx.fill(); ctx.restore(); } }
 
-/* ============ PUNTERIA + PODERES ============ */
-function pointerPos(e){ var rect=cv.getBoundingClientRect(); var t=e.touches?e.touches[0]:e; return {x:t.clientX-rect.left, y:t.clientY-rect.top}; }
-function onDown(e){
-  if(fase==='fly'){
-    var pm=paramsPajaro(pajaroSel);
-    if(pm.dash && !dashUsado){ dashUsado=true; dashActivo=12; bird.vx*=1.7; bird.vy*=1.05; sonidoLanzar(); beep(1100,0.12,'square');
-      for(var d=0;d<16;d++){ particulas.push({x:bird.x,y:bird.y,vx:-Math.cos(bird.angle)*(Math.random()*7+3)+(Math.random()-0.5)*3,vy:-Math.sin(bird.angle)*(Math.random()*7+3)+(Math.random()-0.5)*3,r:Math.random()*4+2,color:'#ffe14d',vida:14,vidaMax:14,g:0.05,fuego:true}); }
-      e.preventDefault(); return; }
-    if(pm.bomba && !bombaUsada){ bombaUsada=true; estallar(bird.x,bird.y, Math.min(W,H)*0.16, true); e.preventDefault(); return; }
-    return;
-  }
-  if(fase!=='aim') return; var p=pointerPos(e); var dx=p.x-bird.x, dy=p.y-bird.y;
-  if(Math.sqrt(dx*dx+dy*dy) < bird.r*3.5){ aiming=true; initAudio(); e.preventDefault(); } }
-function onMove(e){ if(!aiming) return; var p=pointerPos(e); var dx=p.x-anchor.x, dy=p.y-anchor.y; var d=Math.sqrt(dx*dx+dy*dy);
-  if(d>MAXPULL){ dx=dx/d*MAXPULL; dy=dy/d*MAXPULL; } if(dx>0) dx=0; bird.x=anchor.x+dx; bird.y=anchor.y+dy;
-  var limY=groundY-bird.r*0.8; if(bird.y>limY) bird.y=limY; e.preventDefault(); }
-function onUp(e){ if(!aiming) return; aiming=false; var dx=anchor.x-bird.x, dy=anchor.y-bird.y; if(Math.sqrt(dx*dx+dy*dy)<10){ bird.x=anchor.x; bird.y=anchor.y; return; }
-  var pm=paramsPajaro(pajaroSel); bird.vx=dx*K*pm.kMul; bird.vy=dy*K*pm.kMul; fase='fly'; sonidoLanzar(); e.preventDefault(); }
-function bindPointer(){ var c=document.getElementById('lienzo'); c.addEventListener('mousedown',onDown); window.addEventListener('mousemove',onMove); window.addEventListener('mouseup',onUp);
-  c.addEventListener('touchstart',onDown,{passive:false}); window.addEventListener('touchmove',onMove,{passive:false}); window.addEventListener('touchend',onUp); }
-bindPointer();
+/* ---- Power click + audio init (event listeners) ---- */
+(function(){
+  var el=document.getElementById('lienzo');
+  el.addEventListener('mousedown',onPowerClick);
+  el.addEventListener('touchstart',onPowerClick,{passive:false});
+})();
