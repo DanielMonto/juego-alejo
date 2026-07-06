@@ -227,18 +227,19 @@ function colocarEscena(){
   var patron=PATRONES[rnd(0,PATRONES.length-1)];
   var idx=[0,1,2];
   for(var si=2;si>0;si--){var sj=rnd(0,si),st=idx[si];idx[si]=idx[sj];idx[sj]=st;}
-  var indiceCorrecto=rnd(0,2);
 
-  // 2. Colocar cerdos
+  // 2. Colocar cerdos — correcto se marca por VALOR, no por indice
   for(var i=0;i<3;i++){
     var pos=patron.pos[idx[i]];
     var px=W*pos.x, py=groundY*pos.y;
     if(py>groundY-pr) py=groundY-pr;
     if(py<groundY*0.25) py=groundY*0.25;
-    pigs.push({x:px,y:py,r:pr*0.7,num:opciones[i],correcto:i===indiceCorrecto,
+    pigs.push({x:px,y:py,r:pr*0.7,num:opciones[i],correcto:opciones[i]===estado.resultado,
       vivo:true,vx:0,vy:0,rot:0,shake:0,bob:Math.random()*6});
   }
-  var cc=pigs[indiceCorrecto];
+  var cc=null;
+  for(var ci=0;ci<3;ci++){ if(pigs[ci].correcto){ cc=pigs[ci]; break; } }
+  if(!cc) cc=pigs[0]; // fallback
 
   // 3. Plataformas para cerdos elevados
   for(var k=0;k<3;k++){
@@ -268,7 +269,7 @@ function colocarEscena(){
 
   // 5. Defensa ligera en incorrectos
   for(var j=0;j<3;j++){
-    if(j===indiceCorrecto) continue;
+    if(pigs[j].correcto) continue;
     var ip=pigs[j];
     if(Math.random()>0.45) blocks.push(nuevoBloque(ip.x-pr*0.8,ip.y-pr*0.3, ww,u*0.8, mat(j)));
     if(dif>=2&&Math.random()>0.55) blocks.push(nuevoBloque(ip.x+pr*0.8,ip.y-pr*0.3, ww,u*0.8, mat(j+1)));
@@ -276,7 +277,8 @@ function colocarEscena(){
 
   // 6. TNT
   if(cfgActual.tnt>0&&Math.random()<cfgActual.tnt+0.2){
-    var tntP=pigs[(indiceCorrecto+1)%3];
+    var tntIdx=0; for(var ti=0;ti<3;ti++){if(!pigs[ti].correcto){tntIdx=ti;break;}}
+    var tntP=pigs[tntIdx];
     blocks.push(nuevoBloque(tntP.x+pr*(Math.random()>0.5?1.2:-1.2), tntP.y+pr*0.2, pr*0.7, pr*0.7, 'tnt'));
   }
 
