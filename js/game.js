@@ -190,150 +190,209 @@ function generarOpciones(correcto){ var set={}; set[correcto]=true; var t=0;
 
 /* ---- Construir escena ---- */
 function nuevoBloque(x,y,w,h,type){ return {x:x,y:y,w:w,h:h,type:type,vx:0,vy:0,rot:0,vrot:0,cayendo:false,alpha:1}; }
-function colocarEscena(){
-  var prBase=Math.min(W,H)*0.045; var pm=paramsPajaro(pajaroSel);
-  bird={x:anchor.x,y:anchor.y,vx:0,vy:0, r:Math.min(W,H)*0.035*pm.rMul, angle:0}; dashUsado=false; bombaUsada=false; birdBounced=false; rondaResuelta=false;
-  var opciones=generarOpciones(estado.resultado);
-  var xs=[W*0.55,W*0.73,W*0.90]; pigs=[]; blocks=[];
-  for(var i=0;i<3;i++){
-    var pr=prBase*(0.78+Math.random()*0.55);
-    var estilo=rnd(0,5);
-    var py=construirFuerte(xs[i], pr, estilo);
-    pigs.push({x:xs[i],y:py,r:pr,num:opciones[i],correcto:opciones[i]===estado.resultado,vivo:true,vx:0,vy:0,rot:0,shake:0,bob:Math.random()*6}); }
-  particulas=[]; explosiones=[]; rastro=[];
-  estrellasFondo=[]; if(cfgActual.tema==='noche'){ for(var s=0;s<40;s++){ estrellasFondo.push({x:Math.random()*W,y:Math.random()*groundY*0.9,r:Math.random()*1.8+0.6}); } }
-}
 function mat(k){ var m=cfgActual.mats; return m[((k%m.length)+m.length)%m.length]; }
-function construirFuerte(px, pr, estilo){
-  var u=pr*0.9, ww=pr*0.45, bh=pr*0.5;
-  var baseY=groundY;
-  var pisos=rnd(1, cfgActual.pisosMax);
-
-  if(estilo===0) return fortCajon(px,pr,u,ww,bh,baseY,pisos);
-  if(estilo===1) return fortTorre(px,pr,u,ww,bh,baseY,pisos);
-  if(estilo===2) return fortPiramide(px,pr,u,ww,bh,baseY,pisos);
-  if(estilo===3) return fortBunker(px,pr,u,ww,bh,baseY,pisos);
-  if(estilo===4) return fortEscalera(px,pr,u,ww,bh,baseY,pisos);
-  if(estilo===5) return fortDoble(px,pr,u,ww,bh,baseY,pisos);
-  return fortCajon(px,pr,u,ww,bh,baseY,pisos);
-}
-
-// Estilo 0: Cajon clasico (muros + techo)
-function fortCajon(px,pr,u,ww,bh,baseY,pisos){
-  var y=baseY;
-  for(var p=0;p<pisos;p++){
-    blocks.push(nuevoBloque(px, y-bh/2, pr*2.8, bh, mat(p))); // viga piso
-    y-=bh;
-    blocks.push(nuevoBloque(px-pr*1.1, y-u/2, ww, u, mat(p+1))); // muro izq
-    blocks.push(nuevoBloque(px+pr*1.1, y-u/2, ww, u, mat(p+2))); // muro der
-    y-=u;
-  }
-  blocks.push(nuevoBloque(px, y-bh/2, pr*2.8, bh, mat(pisos))); // techo
-  addTNT(px, baseY-bh-u*0.4, pr);
-  return baseY-bh-pr*0.4;
-}
-
-// Estilo 1: Torre alta y estrecha
-function fortTorre(px,pr,u,ww,bh,baseY,pisos){
-  var y=baseY;
-  var tw=pr*1.6;
-  for(var p=0;p<pisos+1;p++){
-    blocks.push(nuevoBloque(px, y-bh/2, tw, bh, mat(p)));
-    y-=bh;
-    blocks.push(nuevoBloque(px-pr*0.6, y-u/2, ww, u, mat(p+1)));
-    blocks.push(nuevoBloque(px+pr*0.6, y-u/2, ww, u, mat(p+2)));
-    y-=u;
-  }
-  blocks.push(nuevoBloque(px, y-bh/2, tw, bh, mat(0)));
-  addTNT(px, baseY-bh-u*0.4, pr);
-  return baseY-bh-pr*0.4;
-}
-
-// Estilo 2: Piramide (ancho abajo, estrecho arriba)
-function fortPiramide(px,pr,u,ww,bh,baseY,pisos){
-  var y=baseY;
-  for(var p=0;p<pisos+1;p++){
-    var ancho=pr*(2.8-p*0.6);
-    if(ancho<pr) ancho=pr;
-    blocks.push(nuevoBloque(px, y-bh/2, ancho, bh, mat(p)));
-    y-=bh;
-    if(p<pisos){
-      var sep=ancho*0.4;
-      blocks.push(nuevoBloque(px-sep, y-u/2, ww, u, mat(p+1)));
-      blocks.push(nuevoBloque(px+sep, y-u/2, ww, u, mat(p+2)));
-      y-=u;
-    }
-  }
-  addTNT(px, baseY-bh-u*0.4, pr);
-  return baseY-bh-pr*0.4;
-}
-
-// Estilo 3: Bunker (cerdo adentro con muro frontal)
-function fortBunker(px,pr,u,ww,bh,baseY,pisos){
-  var y=baseY;
-  blocks.push(nuevoBloque(px, y-bh/2, pr*3.2, bh, mat(0))); y-=bh;
-  // Muros laterales
-  blocks.push(nuevoBloque(px-pr*1.3, y-u/2, ww, u, mat(1)));
-  blocks.push(nuevoBloque(px+pr*1.3, y-u/2, ww, u, mat(2)));
-  // Muro frontal (protege al cerdo)
-  blocks.push(nuevoBloque(px-pr*1.8, y-u/2, ww, u, mat(0)));
-  y-=u;
-  blocks.push(nuevoBloque(px, y-bh/2, pr*3.2, bh, mat(1))); // techo
-  // Pisos extra
-  for(var p=1;p<pisos;p++){
-    y-=bh;
-    blocks.push(nuevoBloque(px-pr*1.0, y-u*0.4, ww, u*0.8, mat(p)));
-    blocks.push(nuevoBloque(px+pr*1.0, y-u*0.4, ww, u*0.8, mat(p+1)));
-    y-=u*0.8;
-    blocks.push(nuevoBloque(px, y-bh/2, pr*2.4, bh, mat(p)));
-  }
-  addTNT(px, baseY-bh-u*0.4, pr);
-  return baseY-bh-pr*0.4;
-}
-
-// Estilo 4: Escalera (bloques escalonados)
-function fortEscalera(px,pr,u,ww,bh,baseY,pisos){
-  var y=baseY;
-  var dir=Math.random()<0.5?1:-1; // izq o der
-  for(var p=0;p<=pisos;p++){
-    var offset=dir*p*pr*0.5;
-    blocks.push(nuevoBloque(px+offset, y-bh/2, pr*2.0, bh, mat(p)));
-    y-=bh;
-    blocks.push(nuevoBloque(px+offset-pr*0.7, y-u/2, ww, u, mat(p+1)));
-    blocks.push(nuevoBloque(px+offset+pr*0.7, y-u/2, ww, u, mat(p+2)));
-    y-=u;
-  }
-  blocks.push(nuevoBloque(px+dir*pisos*pr*0.5, y-bh/2, pr*2.0, bh, mat(0)));
-  addTNT(px, baseY-bh-u*0.4, pr);
-  return baseY-bh-pr*0.4;
-}
-
-// Estilo 5: Doble pared (2 capas de proteccion)
-function fortDoble(px,pr,u,ww,bh,baseY,pisos){
-  var y=baseY;
-  blocks.push(nuevoBloque(px, y-bh/2, pr*3.6, bh, mat(0))); y-=bh;
-  // Capa exterior
-  blocks.push(nuevoBloque(px-pr*1.5, y-u/2, ww, u, mat(1)));
-  blocks.push(nuevoBloque(px+pr*1.5, y-u/2, ww, u, mat(2)));
-  // Capa interior
-  blocks.push(nuevoBloque(px-pr*0.7, y-u/2, ww, u, mat(0)));
-  blocks.push(nuevoBloque(px+pr*0.7, y-u/2, ww, u, mat(1)));
-  y-=u;
-  blocks.push(nuevoBloque(px, y-bh/2, pr*3.6, bh, mat(2)));
-  for(var p=1;p<pisos;p++){
-    y-=bh;
-    blocks.push(nuevoBloque(px-pr*1.1, y-u/2, ww, u, mat(p)));
-    blocks.push(nuevoBloque(px+pr*1.1, y-u/2, ww, u, mat(p+1)));
-    y-=u;
-    blocks.push(nuevoBloque(px, y-bh/2, pr*2.8, bh, mat(p)));
-  }
-  addTNT(px, baseY-bh-u*0.4, pr);
-  return baseY-bh-pr*0.4;
-}
-
 function addTNT(px,y,pr){
-  if(cfgActual.tnt>0 && Math.random()<Math.min(0.6,cfgActual.tnt+0.25)){
-    blocks.push(nuevoBloque(px, y, pr*0.8, pr*0.8, 'tnt'));
+  if(cfgActual.tnt>0&&Math.random()<Math.min(0.6,cfgActual.tnt+0.25))
+    blocks.push(nuevoBloque(px,y,pr*0.8,pr*0.8,'tnt'));
+}
+function addBloque(x,y,w,h,m){ blocks.push(nuevoBloque(x,y,w,h,m)); }
+
+function colocarEscena(){
+  var pm=paramsPajaro(pajaroSel);
+  bird={x:anchor.x,y:anchor.y,vx:0,vy:0, r:Math.min(W,H)*0.035*pm.rMul, angle:0};
+  dashUsado=false; bombaUsada=false; birdBounced=false; rondaResuelta=false;
+  var opciones=generarOpciones(estado.resultado);
+  pigs=[]; blocks=[];
+  particulas=[]; explosiones=[]; rastro=[];
+  estrellasFondo=[];
+  if(cfgActual.tema==='noche'){ for(var s=0;s<40;s++) estrellasFondo.push({x:Math.random()*W,y:Math.random()*groundY*0.9,r:Math.random()*1.8+0.6}); }
+
+  // Elegir template de nivel aleatorio
+  var template=rnd(0,5);
+  var pr=Math.min(W,H)*0.035;
+  var u=pr*0.9, ww=pr*0.45, bh=pr*0.5;
+
+  if(template===0) nivelTresColumnas(opciones,pr,u,ww,bh);
+  else if(template===1) nivelFuerteGrande(opciones,pr,u,ww,bh);
+  else if(template===2) nivelPlataformas(opciones,pr,u,ww,bh);
+  else if(template===3) nivelMuralla(opciones,pr,u,ww,bh);
+  else if(template===4) nivelMixto(opciones,pr,u,ww,bh);
+  else nivelTrinchera(opciones,pr,u,ww,bh);
+}
+
+function addPig(x,y,num,correcto,pr){
+  var r=pr*0.7;
+  pigs.push({x:x,y:y,r:r,num:num,correcto:correcto,vivo:true,vx:0,vy:0,rot:0,shake:0,bob:Math.random()*6});
+}
+
+/* --- Template 0: Tres columnas (clasico mejorado) --- */
+function nivelTresColumnas(opc,pr,u,ww,bh){
+  var xs=[W*0.52,W*0.72,W*0.90];
+  // Cada columna con estilo aleatorio
+  for(var i=0;i<3;i++){
+    var px=xs[i], pisos=rnd(1,cfgActual.pisosMax);
+    var tieneForte=Math.random()>0.15; // 15% sin fuerte (expuesto)
+    var pigY;
+    if(tieneForte){
+      var y=groundY;
+      for(var p=0;p<pisos;p++){
+        addBloque(px,y-bh/2, pr*2.6,bh, mat(p)); y-=bh;
+        addBloque(px-pr*1.0,y-u/2, ww,u, mat(p+1));
+        addBloque(px+pr*1.0,y-u/2, ww,u, mat(p+2)); y-=u;
+      }
+      addBloque(px,y-bh/2, pr*2.6,bh, mat(pisos));
+      addTNT(px,groundY-bh-u*0.4,pr);
+      pigY=groundY-bh-pr*0.5;
+    } else { pigY=groundY-pr*0.7; }
+    addPig(px,pigY,opc[i],opc[i]===estado.resultado,pr);
+  }
+}
+
+/* --- Template 1: Un fuerte grande con 3 cerdos adentro --- */
+function nivelFuerteGrande(opc,pr,u,ww,bh){
+  var cx=W*0.72, ancho=W*0.28;
+  var pisos=Math.max(2,rnd(1,cfgActual.pisosMax)+1);
+  // Base
+  addBloque(cx,groundY-bh/2, ancho,bh, mat(0));
+  var y=groundY-bh;
+  // Muros exteriores
+  for(var p=0;p<pisos;p++){
+    addBloque(cx-ancho*0.45,y-u/2, ww,u, mat(p));
+    addBloque(cx+ancho*0.45,y-u/2, ww,u, mat(p+1));
+    // Divisores internos
+    if(p===0){
+      addBloque(cx-ancho*0.15,y-u/2, ww,u, mat(p+2));
+      addBloque(cx+ancho*0.15,y-u/2, ww,u, mat(p));
+    }
+    y-=u;
+    addBloque(cx,y-bh/2, ancho,bh, mat(p+1));
+    y-=bh;
+  }
+  addTNT(cx,groundY-bh-u*0.4,pr);
+  // Cerdo izq (abajo)
+  addPig(cx-ancho*0.3, groundY-bh-pr*0.5, opc[0],opc[0]===estado.resultado,pr);
+  // Cerdo centro (abajo)
+  addPig(cx, groundY-bh-pr*0.5, opc[1],opc[1]===estado.resultado,pr);
+  // Cerdo derecha (arriba)
+  addPig(cx+ancho*0.3, groundY-bh-(u+bh)-pr*0.5, opc[2],opc[2]===estado.resultado,pr);
+}
+
+/* --- Template 2: Plataformas a distintas alturas --- */
+function nivelPlataformas(opc,pr,u,ww,bh){
+  var alturas=[0, rnd(1,2), rnd(2,3)];
+  // Mezclar para que la correcta no siempre este en la misma posicion
+  for(var s=alturas.length-1;s>0;s--){ var j=rnd(0,s),tmp=alturas[s];alturas[s]=alturas[j];alturas[j]=tmp; }
+  var xs=[W*0.52, W*0.72, W*0.88];
+  for(var i=0;i<3;i++){
+    var px=xs[i], niveles=alturas[i];
+    var y=groundY;
+    // Columna de soporte
+    for(var p=0;p<niveles;p++){
+      addBloque(px-pr*0.6,y-u/2, ww,u, mat(p));
+      addBloque(px+pr*0.6,y-u/2, ww,u, mat(p+1));
+      y-=u;
+      addBloque(px,y-bh/2, pr*1.8,bh, mat(p));
+      y-=bh;
+    }
+    // Plataforma final con muros
+    addBloque(px,y-bh/2, pr*2.4,bh, mat(i));
+    y-=bh;
+    addBloque(px-pr*0.9,y-u/2, ww,u, mat(i+1));
+    addBloque(px+pr*0.9,y-u/2, ww,u, mat(i+2));
+    y-=u;
+    addBloque(px,y-bh/2, pr*2.4,bh, mat(i));
+    addTNT(px,y+u*0.3,pr);
+    addPig(px, y+u*0.5+pr*0.2, opc[i],opc[i]===estado.resultado,pr);
+  }
+}
+
+/* --- Template 3: Muralla con cerdos detras --- */
+function nivelMuralla(opc,pr,u,ww,bh){
+  var wallX=W*0.58;
+  var pisos=Math.max(2,rnd(1,cfgActual.pisosMax)+1);
+  // Muralla vertical
+  for(var p=0;p<pisos;p++){
+    addBloque(wallX, groundY-p*u-u/2, ww*1.5, u, mat(p));
+  }
+  // Techo de la muralla
+  addBloque(wallX, groundY-pisos*u-bh/2, pr*2, bh, mat(0));
+  addTNT(wallX, groundY-u*0.4, pr);
+
+  // Cerdos detras de la muralla a diferentes posiciones
+  var pigXs=[W*0.68, W*0.78, W*0.90];
+  var pigYs=[groundY-pr*0.7, groundY-pr*0.7, groundY-pr*0.7];
+  // Un cerdo en altura
+  var elevado=rnd(0,2);
+  // Plataforma elevada para ese cerdo
+  addBloque(pigXs[elevado], groundY-u-bh/2, pr*2, bh, mat(1));
+  addBloque(pigXs[elevado]-pr*0.7, groundY-u/2, ww, u, mat(2));
+  addBloque(pigXs[elevado]+pr*0.7, groundY-u/2, ww, u, mat(0));
+  pigYs[elevado]=groundY-u-bh-pr*0.5;
+  // Fuertecito para otro cerdo
+  var protegido=(elevado+1)%3;
+  addBloque(pigXs[protegido]-pr*1.0, groundY-u/2, ww, u, mat(1));
+  addBloque(pigXs[protegido]+pr*1.0, groundY-u/2, ww, u, mat(2));
+  addBloque(pigXs[protegido], groundY-u-bh/2, pr*2.4, bh, mat(0));
+
+  for(var i=0;i<3;i++) addPig(pigXs[i],pigYs[i],opc[i],opc[i]===estado.resultado,pr);
+}
+
+/* --- Template 4: Mixto (1 expuesto, 1 protegido, 1 elevado) --- */
+function nivelMixto(opc,pr,u,ww,bh){
+  var order=[0,1,2];
+  for(var s=2;s>0;s--){var j=rnd(0,s),tmp=order[s];order[s]=order[j];order[j]=tmp;}
+
+  // Expuesto (sin fuerte)
+  var ex=order[0], exX=W*(0.5+ex*0.18);
+  addPig(exX, groundY-pr*0.7, opc[ex],opc[ex]===estado.resultado,pr);
+
+  // Protegido (bunker)
+  var pt=order[1], ptX=W*(0.5+pt*0.18);
+  addBloque(ptX, groundY-bh/2, pr*3.2, bh, mat(0));
+  addBloque(ptX-pr*1.3, groundY-bh-u/2, ww, u, mat(1));
+  addBloque(ptX+pr*1.3, groundY-bh-u/2, ww, u, mat(2));
+  addBloque(ptX-pr*1.8, groundY-bh-u/2, ww, u, mat(0)); // muro frontal
+  addBloque(ptX, groundY-bh-u-bh/2, pr*3.2, bh, mat(1));
+  addTNT(ptX, groundY-bh-u*0.4, pr);
+  addPig(ptX, groundY-bh-pr*0.5, opc[pt],opc[pt]===estado.resultado,pr);
+
+  // Elevado (torre)
+  var el=order[2], elX=W*(0.5+el*0.18);
+  var pisos=rnd(2,Math.max(2,cfgActual.pisosMax));
+  var y=groundY;
+  for(var p=0;p<pisos;p++){
+    addBloque(elX, y-bh/2, pr*2, bh, mat(p));
+    y-=bh;
+    addBloque(elX-pr*0.7, y-u/2, ww, u, mat(p+1));
+    addBloque(elX+pr*0.7, y-u/2, ww, u, mat(p+2));
+    y-=u;
+  }
+  addBloque(elX, y-bh/2, pr*2, bh, mat(0));
+  addPig(elX, y+u*0.3, opc[el],opc[el]===estado.resultado,pr);
+}
+
+/* --- Template 5: Trinchera (cerdos en hoyos entre bloques) --- */
+function nivelTrinchera(opc,pr,u,ww,bh){
+  var startX=W*0.48, spacing=W*0.17;
+  for(var i=0;i<3;i++){
+    var px=startX+i*spacing;
+    // Muros laterales formando trinchera
+    addBloque(px-pr*1.2, groundY-u/2, ww, u, mat(i));
+    addBloque(px+pr*1.2, groundY-u/2, ww, u, mat(i+1));
+    // Piso de trinchera
+    addBloque(px, groundY-bh/2, pr*2.0, bh, mat(i+2));
+    // Techo aleatorio (a veces abierto)
+    if(Math.random()>0.35){
+      addBloque(px, groundY-u-bh/2, pr*2.8, bh, mat(i));
+      // Segundo nivel aleatorio
+      if(rnd(0,cfgActual.pisosMax)>1){
+        addBloque(px-pr*0.8, groundY-u-bh-u/2, ww, u, mat(i+1));
+        addBloque(px+pr*0.8, groundY-u-bh-u/2, ww, u, mat(i+2));
+        addBloque(px, groundY-u-bh-u-bh/2, pr*2.2, bh, mat(i));
+      }
+    }
+    addTNT(px, groundY-bh-pr*0.3, pr);
+    addPig(px, groundY-bh-pr*0.5, opc[i],opc[i]===estado.resultado,pr);
   }
 }
 
