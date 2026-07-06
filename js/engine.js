@@ -9,7 +9,7 @@ var MEngine=Matter.Engine, MBody=Matter.Body, MBodies=Matter.Bodies,
     MEvents=Matter.Events;
 
 var cv,ctx,W,H,groundY,anchor,raf=null;
-var bird,pigs,blocks,particulas,estrellasFondo=[],explosiones=[],rastro=[],obstaculos=[];
+var bird,pigs,blocks,particulas,estrellasFondo=[],explosiones=[],rastro=[],obstaculos=[],bonusItems=[];
 var fase='aim', aiming=false, tAnim=0, dashActivo=0, birdBounced=false;
 var K=0.26, G, MAXPULL;
 
@@ -256,6 +256,11 @@ function actualizar(){
       // Pigs
       for(var i=0;i<pigs.length;i++){ var p=pigs[i]; if(p.vivo){ if(dist(bird.x,bird.y,p.x,p.y) < p.r+bird.r*0.7){ resolverPig(p); return; } } }
     }
+    // Bonus items (estrellas)
+    for(var bi=bonusItems.length-1;bi>=0;bi--){ var bo=bonusItems[bi]; if(!bo.collected && dist(bird.x,bird.y,bo.x,bo.y)<bird.r+bo.r){
+      bo.collected=true; sonidoToque(7);
+      for(var bp=0;bp<8;bp++){ var ba=Math.random()*6.283; particulas.push({x:bo.x,y:bo.y,vx:Math.cos(ba)*3,vy:Math.sin(ba)*3-1,r:3,color:'#ffd23f',vida:18,vidaMax:18,g:0.1,fuego:true}); }
+    } }
     // Ground
     var tocaSuelo = bird.y>groundY-bird.r*0.3 && bird.vy>0;
     if(tocaSuelo){
@@ -274,7 +279,11 @@ function actualizar(){
     // Out of bounds
     if(bird.x>W+80 || bird.x<-80){ fase='resolver'; perderVida(); return; }
   }
-  for(var j=0;j<pigs.length;j++){ var pg=pigs[j]; if(!pg.vivo){ pg.x+=pg.vx; pg.y+=pg.vy; pg.vy+=G*0.6; pg.rot+=0.2; } if(pg.shake>0){ pg.shake-=0.05; if(pg.shake<0) pg.shake=0; } }
+  for(var j=0;j<pigs.length;j++){ var pg=pigs[j];
+    if(!pg.vivo){ pg.x+=pg.vx; pg.y+=pg.vy; pg.vy+=G*0.6; pg.rot+=0.2; }
+    else { if(pg.movX){ pg.x+=pg.movX; if(pg.x>pg.limDer||pg.x<pg.limIzq) pg.movX*=-1; }
+           if(pg.movY){ pg.y+=pg.movY; if(pg.y>pg.limAbajo||pg.y<pg.limArriba) pg.movY*=-1; } }
+    if(pg.shake>0){ pg.shake-=0.05; if(pg.shake<0) pg.shake=0; } }
   for(var k=0;k<blocks.length;k++){ var b=blocks[k]; if(b.cayendo){ b.x+=b.vx; b.y+=b.vy; b.vy+=G*0.5; b.rot+=b.vrot; if(b.y>groundY+140) b.alpha=Math.max(0,b.alpha-0.02); } }
   for(var m2=particulas.length-1;m2>=0;m2--){ var pt=particulas[m2]; pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=(pt.g!==undefined?pt.g:0.2); if(pt.humo){ pt.r+=0.5; pt.vx*=0.96; } pt.vida--; if(pt.vida<=0) particulas.splice(m2,1); }
   for(var ex=explosiones.length-1;ex>=0;ex--){ explosiones[ex].t++; if(explosiones[ex].t>explosiones[ex].max) explosiones.splice(ex,1); }
@@ -285,6 +294,7 @@ function dibujar(){ ctx.clearRect(0,0,W,H); fondoTema(cfgActual.tema);
   for(var ob=0;ob<obstaculos.length;ob++) dibujarObstaculo(obstaculos[ob]);
   for(var i=0;i<blocks.length;i++){ dibujarBloque(blocks[i]); }
   for(var j=0;j<pigs.length;j++){ dibujarPig(pigs[j]); }
+  for(var bi=0;bi<bonusItems.length;bi++) dibujarBonus(bonusItems[bi]);
   dibujarResorteraBack(); if(fase==='aim') dibujarTrayectoria(); dibujarRastro(); dibujarPajaro(); dibujarResorteraFront();
   dibujarExplosiones();
   for(var p=0;p<particulas.length;p++){ dibujarParticula(particulas[p]); } }
@@ -355,6 +365,10 @@ function dibujarPig(p){ if(!p.vivo && p.y>H+140) return; var bob=p.vivo?Math.sin
     ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-r*0.33,-r*0.18,r*0.27,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(r*0.33,-r*0.18,r*0.27,0,7); ctx.fill();
     ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(-r*0.27,-r*0.14,r*0.13,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(r*0.39,-r*0.14,r*0.13,0,7); ctx.fill();
     ctx.strokeStyle='#2f7d33'; ctx.lineWidth=r*0.12; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(-r*0.58,-r*0.52); ctx.lineTo(-r*0.12,-r*0.4); ctx.stroke(); ctx.beginPath(); ctx.moveTo(r*0.58,-r*0.52); ctx.lineTo(r*0.12,-r*0.4); ctx.stroke();
+    // Escudo si tiene hp > 1
+    if(p.hp&&p.hp>1){ ctx.strokeStyle='#3ec7ff'; ctx.lineWidth=3;
+      ctx.globalAlpha=0.45+0.2*Math.sin(tAnim*0.08); ctx.beginPath(); ctx.arc(0,0,r*1.4,0,7); ctx.stroke();
+      ctx.fillStyle='rgba(62,199,255,.12)'; ctx.fill(); ctx.globalAlpha=1; }
   } else { ctx.font=(r*2)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('\uD83D\uDCAB',0,0); }
   ctx.restore();
   if(p.vivo){ var bw=r*1.8, bh=r*1.25, by=p.y-r*2.0+bob; ctx.strokeStyle='#c98a3c'; ctx.lineWidth=r*0.14; ctx.beginPath(); ctx.moveTo(p.x,by+bh/2); ctx.lineTo(p.x,p.y-r*0.8+bob); ctx.stroke();
@@ -375,7 +389,8 @@ function dibujarBloque(b){ if(b.alpha<=0) return; ctx.save(); ctx.globalAlpha=b.
 
 function dibujarTrayectoria(){ if(!aiming) return; var pm=paramsPajaro(pajaroSel); var kk=K*pm.kMul;
   var x=bird.x,y=bird.y, vX=(anchor.x-bird.x)*kk, vY=(anchor.y-bird.y)*kk; var n=0;
-  for(var i=0;i<44;i++){ x+=vX*3; y+=vY*3; vY+=G*3; if(y>groundY||x>W||x<0) break; if(i%2!==0) continue; n++;
+  var maxSteps=cfgActual.pisosMax<=1?44:cfgActual.pisosMax<=2?28:16;
+  for(var i=0;i<maxSteps;i++){ x+=vX*3; y+=vY*3; vY+=G*3; if(y>groundY||x>W||x<0) break; if(i%2!==0) continue; n++;
     var rr=Math.max(3.5, 8.5-n*0.4);
     ctx.beginPath(); ctx.arc(x,y,rr+3,0,7); ctx.fillStyle='rgba(15,15,35,.55)'; ctx.fill();
     ctx.beginPath(); ctx.arc(x,y,rr,0,7); ctx.fillStyle='rgba(255,255,255,.98)'; ctx.fill(); } }
@@ -398,6 +413,28 @@ function dibujarRastro(){ if(fase!=='fly'||rastro.length<2) return; var esAmar=(
   for(var i=0;i<rastro.length;i++){ var q=rastro[i]; var a=i/rastro.length; ctx.save(); ctx.globalAlpha=a*(esAmar?0.6:0.38);
     if(esAmar){ ctx.fillStyle=(dashActivo>0?'#fff6b0':'#ffd23f'); ctx.shadowBlur=12; ctx.shadowColor='#ffd23f'; } else ctx.fillStyle=col;
     ctx.beginPath(); ctx.arc(q.x,q.y, bird.r*0.55*a+1,0,7); ctx.fill(); ctx.restore(); } }
+
+/* ---- Dibujo de estrellas bonus ---- */
+function dibujarBonus(b){
+  if(b.collected) return;
+  var bob=Math.sin(tAnim*0.06+b.fase)*b.r*0.4;
+  ctx.save(); ctx.translate(b.x,b.y+bob);
+  ctx.globalAlpha=0.8+0.2*Math.sin(tAnim*0.1+b.fase);
+  // Brillo
+  ctx.shadowBlur=12; ctx.shadowColor='#ffd23f';
+  // Estrella de 5 puntas
+  ctx.fillStyle='#ffd23f'; ctx.strokeStyle='#ff9500'; ctx.lineWidth=2;
+  ctx.beginPath();
+  for(var i=0;i<5;i++){
+    var a=i*Math.PI*2/5-Math.PI/2, r1=b.r, r2=b.r*0.45;
+    ctx.lineTo(Math.cos(a)*r1,Math.sin(a)*r1);
+    var a2=a+Math.PI/5;
+    ctx.lineTo(Math.cos(a2)*r2,Math.sin(a2)*r2);
+  }
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.shadowBlur=0; ctx.globalAlpha=1;
+  ctx.restore();
+}
 
 /* ---- Power click + audio init (event listeners) ---- */
 (function(){

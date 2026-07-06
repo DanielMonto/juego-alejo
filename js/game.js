@@ -8,7 +8,8 @@ var retoMundo=0, retoIdx=0, rondaActual=0, primerIntento=0, rondaFallada=false;
 var estado={a:0,b:0,op:'+',tipo:'suma',resultado:0};
 var rachaActual=0, rondaResuelta=false;
 var pajaroSel='rojo', dashUsado=false, bombaUsada=false;
-var vidas=3;
+var vidas=3, fallosRonda=0;
+var swapTimer=null; // timer para rotar numeros de cerdos
 
 /* ---- Config global de dificultad ---- */
 function getMaxRes(){
@@ -38,12 +39,19 @@ function perderVida(){
   containers.forEach(function(el){ if(el){el.classList.remove('vida-flash');void el.offsetWidth;el.classList.add('vida-flash');}});
   sonidoMal();
   rondaFallada=true;
+  fallosRonda++;
   toast('Vida perdida! Quedan '+vidas);
   if(vidas<=0){
     setTimeout(function(){ mostrarGameOver(); }, 800);
   } else {
-    hablar('¡Ese no! Inténtalo otra vez. Te quedan '+vidas+' vidas');
-    setTimeout(resetBirdMatter, 700);
+    // Tras 2 fallos en la misma ronda, abrir ayuda automaticamente
+    if(fallosRonda>=2 && typeof abrirConteo==='function'){
+      hablar('Te ayudo a contar');
+      setTimeout(function(){ abrirConteo(); resetBirdMatter(); }, 800);
+    } else {
+      hablar('¡Ese no! Inténtalo otra vez. Te quedan '+vidas+' vidas');
+      setTimeout(resetBirdMatter, 700);
+    }
   }
 }
 function actualizarVidasHud(){
@@ -53,7 +61,7 @@ function actualizarVidasHud(){
   el.innerHTML=h;
 }
 function mostrarGameOver(){
-  fase='resolver';
+  fase='resolver'; limpiarSwapTimer();
   if(modo==='racha') ocultarHudRacha();
   document.getElementById('goRacha').textContent=modo==='racha'?rachaRacha:primerIntento+'/'+RONDAS_POR_RETO;
   document.getElementById('goMejor').textContent=save.rachaMax;
@@ -69,7 +77,7 @@ function iniciarReto(m,r){ modo='aventura'; retoMundo=m; retoIdx=r; rondaActual=
   document.getElementById('chipRonda').style.display='';
   nuevaRondaAventura(); if(!raf) bucle(); }
 
-function nuevaRondaAventura(){ rondaFallada=false; document.getElementById('chipRonda').textContent='Ronda '+(rondaActual+1)+'/'+RONDAS_POR_RETO;
+function nuevaRondaAventura(){ rondaFallada=false; fallosRonda=0; document.getElementById('chipRonda').textContent='Ronda '+(rondaActual+1)+'/'+RONDAS_POR_RETO;
   generarOperacion(cfgActual.maxRes, getModoOp()); pintarProblema(); colocarEscena(); fase='aim';
   actualizarVidasHud();
   hablar('¿Cuánto es '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+'?'); }
@@ -78,7 +86,7 @@ function pintarProblema(){
   document.getElementById('problema').textContent=estado.a+' '+estado.op+' '+estado.b+' = ?';
   if(modo==='racha') actualizarHudRacha();
 }
-function salirJuego(){ cerrarConteo(); ocultarHudRacha(); refrescarChips(); if(modo==='aventura') { renderMapa(); mostrar('sMapa'); } else mostrar('sMenu'); }
+function salirJuego(){ limpiarSwapTimer(); cerrarConteo(); ocultarHudRacha(); refrescarChips(); if(modo==='aventura') { renderMapa(); mostrar('sMapa'); } else mostrar('sMenu'); }
 
 /* ============ MODO RACHA INFINITA ============ */
 var rachaRacha=0, rachaNivelIdx=0, rachaRecord=false;
@@ -101,7 +109,7 @@ function iniciarRacha(){
   if(!raf) bucle();
 }
 
-function nuevaRondaRacha(){
+function nuevaRondaRacha(){ fallosRonda=0;
   var nuevoIdx=getNivelRacha(rachaRacha);
   if(nuevoIdx!==rachaNivelIdx){
     rachaNivelIdx=nuevoIdx;
@@ -278,108 +286,73 @@ function colocarEscena(){
     blocks.push(nuevoBloque(tntP.x+pr*(Math.random()>0.5?1.2:-1.2), tntP.y+pr*0.2, pr*0.7, pr*0.7, 'tnt'));
   }
 
+  // 7. Estrellas bonus en la ruta de vuelo
+  bonusItems=[];
+  var nStars=dif<=1?rnd(1,2):rnd(2,3);
+  for(var si=0;si<nStars;si++){
+    bonusItems.push({
+      x:W*(0.25+Math.random()*0.4),
+      y:groundY*(0.2+Math.random()*0.45),
+      r:Math.min(W,H)*0.018,
+      fase:Math.random()*6,
+      collected:false
+    });
+  }
+
+  // 9. Cerdos moviles — en racha escala por racha, no solo pisosMax
+  var movDif=dif;
+  if(modo==='racha' && rachaRacha>=4) movDif=Math.max(movDif,2);
+  if(modo==='racha' && rachaRacha>=15) movDif=Math.max(movDif,3);
+  asignarMovimientoCerdos(movDif);
+
+  // 10. Numeros que rotan — intercambian cada N segundos en mundos dificiles
+  if(swapTimer){ clearInterval(swapTimer); swapTimer=null; }
+  if(dif>=3 || (modo==='racha'&&rachaRacha>=20)){
+    swapTimer=setInterval(swapNumerosCerdos, 4000);
+  } else if(dif>=2 || (modo==='racha'&&rachaRacha>=10)){
+    swapTimer=setInterval(swapNumerosCerdos, 6000);
+  }
+
   if(typeof syncMatter==='function') syncMatter();
 }
 
-/* ============================================================
-   OBSTACULOS DE MUNDO — generacion por tema + dificultad
-============================================================ */
-var RUTAS_MUNDO={
-  pradera:  [],
-  desierto: ['viento','lento'],
-  nieve:    ['boost','lento','rebote'],
-  volcan:   ['impulso','rebote','miniTnt'],
-  playa:    ['viento','rebote'],
-  noche:    ['niebla','rebote','viento']
-};
-
-function colocarObstaculosMundo(cc,dif){
-  var tema=cfgActual.tema;
-  var rutas=RUTAS_MUNDO[tema];
-  if(!rutas||!rutas.length) return;
-  var s=Math.min(W,H);
-
-  // Cuantos obstaculos: 1 en facil, 2-3 en dificil
-  var nObs=dif<=1?1:dif<=2?rnd(1,2):rnd(2,3);
-
-  // Primero el obstaculo clave (entre resortera y cerdo correcto)
-  var primario=rutas[0];
-  crearObstaculo(primario,cc,dif,tema,true);
-
-  // Obstaculos secundarios
-  for(var i=1;i<nObs&&i<rutas.length;i++){
-    crearObstaculo(rutas[i],cc,dif,tema,false);
-  }
+/* ---- Numeros que rotan ---- */
+function swapNumerosCerdos(){
+  if(fase!=='aim'||rondaResuelta) return; // solo rotar mientras apunta
+  // Elegir 2 cerdos vivos al azar e intercambiar sus numeros
+  var vivos=[];
+  for(var i=0;i<pigs.length;i++) if(pigs[i].vivo) vivos.push(pigs[i]);
+  if(vivos.length<2) return;
+  var a=rnd(0,vivos.length-1), b=a;
+  while(b===a) b=rnd(0,vivos.length-1);
+  var tmpNum=vivos[a].num, tmpCorr=vivos[a].correcto;
+  vivos[a].num=vivos[b].num; vivos[a].correcto=vivos[b].correcto;
+  vivos[b].num=tmpNum; vivos[b].correcto=tmpCorr;
+  // Flash visual: shake breve en ambos
+  vivos[a].shake=0.5; vivos[b].shake=0.5;
+  if(typeof sonidoToque==='function') sonidoToque(1);
 }
+function limpiarSwapTimer(){ if(swapTimer){ clearInterval(swapTimer); swapTimer=null; } }
 
-function crearObstaculo(tipo,cc,dif,tema,esClave){
+/* ---- Cerdos moviles ---- */
+function asignarMovimientoCerdos(dif){
+  if(dif<=1) return; // pradera: sin movimiento
   var s=Math.min(W,H);
-  // Punto medio entre resortera y cerdo correcto
-  var t=esClave?(0.35+Math.random()*0.15):(0.25+Math.random()*0.3);
-  var midX=anchor.x+(cc.x-anchor.x)*t;
-  var midY=anchor.y+(cc.y-anchor.y)*t;
-  // Secundarios se desplazan para no solapar el clave
-  if(!esClave){ midX+=s*(Math.random()-0.5)*0.15; midY+=s*(Math.random()-0.5)*0.1; }
-  // Clamp dentro de pantalla
-  midX=Math.max(W*0.25,Math.min(W*0.75,midX));
-  midY=Math.max(groundY*0.2,Math.min(groundY*0.85,midY));
+  var pr=s*0.035;
+  var vel=s*0.0006*(dif+1);
+  var rango=s*0.03+dif*s*0.008;
 
-  var mov=dif>=3&&Math.random()>0.5; // movimiento en dificultad alta
+  for(var i=0;i<pigs.length;i++){
+    var p=pigs[i];
+    // En dif 2: solo incorrectos (50% chance). En dif 3: todos
+    if(dif<3 && (p.correcto || Math.random()>0.5)) continue;
 
-  if(tipo==='viento'){
-    var dirX=cc.x>midX?1:-1;
-    var dirY=cc.y<midY?-1:0.3;
-    var o={x:midX,y:midY,w:s*0.12,h:s*0.16,tipo:'viento',
-      fx:dirX*(0.06+dif*0.015), fy:dirY*(0.08+dif*0.01),
-      color:tema==='playa'?'#80c0ff':tema==='noche'?'#c0a0ff':'#ffe14d',activo:true};
-    if(mov){ o.movY=0.4+Math.random()*0.3; o.limArriba=midY-s*0.08; o.limAbajo=midY+s*0.08; }
-    obstaculos.push(o);
-  }
-  else if(tipo==='lento'){
-    var o={x:midX,y:midY,w:s*0.11,h:s*0.09,tipo:'lento',
-      fuerza:0.90-dif*0.03,
-      color:tema==='nieve'?'#d0e8ff':'#c9a43c',activo:true};
-    if(mov){ o.movX=0.3+Math.random()*0.3; o.limIzq=midX-s*0.06; o.limDer=midX+s*0.06; }
-    obstaculos.push(o);
-  }
-  else if(tipo==='boost'){
-    var bx=W*0.30+Math.random()*W*0.12;
-    var by=groundY-s*0.06-Math.random()*s*0.04;
-    obstaculos.push({x:bx,y:by,w:s*0.16,h:s*0.035,tipo:'boost',
-      mulX:1.05+dif*0.02, color:'#b8e8f8',activo:true});
-  }
-  else if(tipo==='impulso'){
-    var ix=W*0.35+Math.random()*W*0.12;
-    var iy=groundY-s*0.12;
-    var o={x:ix,y:iy,w:s*0.055,h:s*0.12,tipo:'impulso',
-      impulsoY:-4.5-dif*0.7, color:'#ff5a1f',activo:true};
-    if(mov){ o.movX=0.5; o.limIzq=ix-s*0.06; o.limDer=ix+s*0.06; }
-    obstaculos.push(o);
-  }
-  else if(tipo==='rebote'){
-    var rx=esClave?midX:W*(0.38+Math.random()*0.2);
-    var ry=esClave?midY:groundY*(0.35+Math.random()*0.3);
-    var o={x:rx,y:ry,r:s*0.025+dif*s*0.005,tipo:'rebote',
-      fuerza:0.75+dif*0.05,
-      color:tema==='volcan'?'#6a3030':tema==='noche'?'#f5f3c0':'#8a929c',
-      borde:tema==='volcan'?'#ff5a1f':tema==='noche'?'#ffd23f':'#5c636b',activo:true};
-    if(mov){ o.movY=0.4; o.limArriba=ry-s*0.06; o.limAbajo=ry+s*0.06; }
-    obstaculos.push(o);
-  }
-  else if(tipo==='miniTnt'){
-    // Colocar cerca de un cerdo incorrecto
-    var incs=[]; for(var i=0;i<pigs.length;i++) if(!pigs[i].correcto) incs.push(pigs[i]);
-    var tgt=incs[rnd(0,incs.length-1)];
-    obstaculos.push({x:tgt.x+(Math.random()>0.5?1:-1)*s*0.045,
-      y:tgt.y+s*0.015,r:s*0.014,tipo:'miniTnt',
-      radio:s*0.07+dif*s*0.015,activo:true});
-  }
-  else if(tipo==='niebla'){
-    // En la ruta de vuelo, nunca sobre los numeros de cerdos
-    var nx=W*0.38+Math.random()*W*0.15;
-    var ny=groundY*0.3+Math.random()*groundY*0.2;
-    obstaculos.push({x:nx,y:ny,r:s*0.07+dif*s*0.015,
-      tipo:'niebla',color:'#2a2040',revelado:false,activo:true});
+    // Rango: elevados se mueven poco (no salir de plataforma), bajos mas
+    var enPlataforma=p.y<groundY-pr*2;
+    var r2=enPlataforma?pr*0.7:rango;
+    p.movX=vel*(Math.random()>0.5?1:-1);
+    p.limIzq=Math.max(W*0.45, p.x-r2);
+    p.limDer=Math.min(W*0.92, p.x+r2);
   }
 }
 
@@ -417,11 +390,27 @@ function markTNTused(){ if(!save.tntUsado){ save.tntUsado=true; guardar(); toast
 function ganarRonda(pig){
   if(rondaResuelta) return; rondaResuelta=true; fase='resolver';
   pig.vivo=false; pig.vx=(Math.random()*6+4); pig.vy=-(Math.random()*8+8);
-  explota(pig.x,pig.y, Math.min(W,H)*0.13);
+
+  // Bonus por precision: medir distancia al centro del cerdo
+  var hitDist=dist(bird.x,bird.y,pig.x,pig.y);
+  var precision=hitDist<pig.r*0.4?'perfecto':hitDist<pig.r*0.8?'bueno':'normal';
+
+  if(precision==='perfecto'){
+    explota(pig.x,pig.y, Math.min(W,H)*0.18); // explosion grande
+    toast('TIRO PERFECTO!');
+  } else if(precision==='bueno'){
+    explota(pig.x,pig.y, Math.min(W,H)*0.15);
+  } else {
+    explota(pig.x,pig.y, Math.min(W,H)*0.13);
+  }
+
   for(var i=0;i<blocks.length;i++){ var b=blocks[i]; if(b.type!=='tnt' && Math.abs(b.x-pig.x)<pig.r*2 && !b.cayendo) tumbar(b,pig.x); }
   sonidoBoom(); sonidoVictoria(); lanzarConfeti();
+  if(precision==='perfecto') setTimeout(lanzarConfeti,200); // confeti doble
+
   rachaActual++; save.aciertosTotales++; if(rachaActual>save.rachaMax) save.rachaMax=rachaActual; guardar();
-  var elogios=['¡Muy bien','¡Excelente','¡Campeón','¡Genial','¡Súper','¡Increíble']; var el=elogios[rnd(0,elogios.length-1)]+', '+(save.nombre||'Alejo')+'!';
+  var elogios=precision==='perfecto'?['BOOM','DIANA','PERFECTO']:['¡Muy bien','¡Excelente','¡Campeón','¡Genial','¡Súper','¡Increíble'];
+  var el=elogios[rnd(0,elogios.length-1)]+', '+(save.nombre||'Alejo')+'!';
   hablarAcierto(el+' '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+' es '+estado.resultado);
   if(modo==='aventura'){
     if(!rondaFallada) primerIntento++;
