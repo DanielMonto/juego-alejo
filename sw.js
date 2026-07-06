@@ -1,4 +1,4 @@
-var CACHE='pajaros-v1';
+var CACHE='pajaros-v2';
 var URLS=[
   './',
   './index.html',
