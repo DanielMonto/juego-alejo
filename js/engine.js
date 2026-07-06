@@ -31,20 +31,23 @@ function actualizar(){
   if(fase==='fly'){ bird.x+=bird.vx; bird.y+=bird.vy; bird.vy+=G; bird.angle=Math.atan2(bird.vy,bird.vx);
     rastro.push({x:bird.x,y:bird.y}); if(rastro.length>16) rastro.shift(); if(dashActivo>0) dashActivo--;
     var pm=paramsPajaro(pajaroSel);
-    // BOMBA: explota al primer contacto
-    if(pm.bomba && !bombaUsada){ var toco = bird.y>groundY-bird.r*0.3 && bird.vy>0;
-      if(!toco){ for(var q=0;q<blocks.length;q++){ var bq=blocks[q]; if(bq.cayendo||bq.alpha<=0) continue; if(Math.abs(bird.x-bq.x)<bq.w*0.5+bird.r*0.7 && Math.abs(bird.y-bq.y)<bq.h*0.5+bird.r*0.7){ toco=true; break; } } }
-      if(!toco){ for(var q2=0;q2<pigs.length;q2++){ var pq=pigs[q2]; if(pq.vivo && dist(bird.x,bird.y,pq.x,pq.y)<pq.r+bird.r){ toco=true; break; } } }
-      if(toco){ bombaUsada=true; estallar(bird.x,bird.y, Math.min(W,H)*0.16, true); return; } }
-    // TNT directo
-    for(var t=0;t<blocks.length;t++){ var bl=blocks[t]; if(bl.type==='tnt' && !bl.cayendo && bl.alpha>0){
-      if(Math.abs(bird.x-bl.x)<bl.w*0.6+bird.r && Math.abs(bird.y-bl.y)<bl.h*0.6+bird.r){ estallar(bl.x,bl.y, Math.min(W,H)*0.18, true); return; } } }
-    // Arrasar bloques
-    for(var c=0;c<blocks.length;c++){ var bk=blocks[c]; if(bk.type==='tnt'||bk.cayendo||bk.alpha<=0) continue;
-      if(Math.abs(bird.x-bk.x)<bk.w*0.5+bird.r*0.65 && Math.abs(bird.y-bk.y)<bk.h*0.5+bird.r*0.65){
-        tumbar(bk,bird.x); var fr=(bk.type==='stone')?0.86:(bk.type==='ice'?0.9:0.92); if(pajaroSel==='azul') fr=0.97; bird.vx*=fr; bird.vy*=fr; } }
-    // Cerditos: impacto directo
-    for(var i=0;i<pigs.length;i++){ var p=pigs[i]; if(p.vivo){ if(dist(bird.x,bird.y,p.x,p.y) < p.r+bird.r*0.7){ resolverPig(p); return; } } }
+    // Despues de rebotar, el pajaro no interactua con nada
+    if(!birdBounced){
+      // BOMBA: explota al primer contacto
+      if(pm.bomba && !bombaUsada){ var toco = bird.y>groundY-bird.r*0.3 && bird.vy>0;
+        if(!toco){ for(var q=0;q<blocks.length;q++){ var bq=blocks[q]; if(bq.cayendo||bq.alpha<=0) continue; if(Math.abs(bird.x-bq.x)<bq.w*0.5+bird.r*0.7 && Math.abs(bird.y-bq.y)<bq.h*0.5+bird.r*0.7){ toco=true; break; } } }
+        if(!toco){ for(var q2=0;q2<pigs.length;q2++){ var pq=pigs[q2]; if(pq.vivo && dist(bird.x,bird.y,pq.x,pq.y)<pq.r+bird.r){ toco=true; break; } } }
+        if(toco){ bombaUsada=true; estallar(bird.x,bird.y, Math.min(W,H)*0.16, true); return; } }
+      // TNT directo
+      for(var t=0;t<blocks.length;t++){ var bl=blocks[t]; if(bl.type==='tnt' && !bl.cayendo && bl.alpha>0){
+        if(Math.abs(bird.x-bl.x)<bl.w*0.6+bird.r && Math.abs(bird.y-bl.y)<bl.h*0.6+bird.r){ estallar(bl.x,bl.y, Math.min(W,H)*0.18, true); return; } } }
+      // Arrasar bloques
+      for(var c=0;c<blocks.length;c++){ var bk=blocks[c]; if(bk.type==='tnt'||bk.cayendo||bk.alpha<=0) continue;
+        if(Math.abs(bird.x-bk.x)<bk.w*0.5+bird.r*0.65 && Math.abs(bird.y-bk.y)<bk.h*0.5+bird.r*0.65){
+          tumbar(bk,bird.x); var fr=(bk.type==='stone')?0.86:(bk.type==='ice'?0.9:0.92); if(pajaroSel==='azul') fr=0.97; bird.vx*=fr; bird.vy*=fr; } }
+      // Cerditos: impacto directo
+      for(var i=0;i<pigs.length;i++){ var p=pigs[i]; if(p.vivo){ if(dist(bird.x,bird.y,p.x,p.y) < p.r+bird.r*0.7){ resolverPig(p); return; } } }
+    }
     // Suelo: primer toque = rebota + pierde vida, segundo toque = resetea
     var tocaSuelo = bird.y>groundY-bird.r*0.3 && bird.vy>0;
     if(tocaSuelo){

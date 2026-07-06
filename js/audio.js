@@ -107,18 +107,7 @@ function elegirVoz(){ if(!('speechSynthesis' in window)) return; var voces=windo
 function hablar(t){ if(!vozOn) return;
   var p=getPersonaje();
   if(p.sfx){ initAudio(); p.sfx(); }
-  // Intentar Puter.js primero (voces neurales)
-  if(typeof puter!=='undefined'&&puter.ai&&puter.ai.txt2speech){
-    try{
-      puter.ai.txt2speech(t,'es-ES').then(function(audio){
-        audio.playbackRate=p.rate||1;
-        audio.play();
-      }).catch(function(){ hablarFallback(t,p); });
-    }catch(e){ hablarFallback(t,p); }
-  } else { hablarFallback(t,p); }
-}
-// Fallback: Speech Synthesis del navegador
-function hablarFallback(t,p){ try{ if('speechSynthesis' in window){ window.speechSynthesis.cancel(); if(!vozElegida) elegirVoz();
+  try{ if('speechSynthesis' in window){ window.speechSynthesis.cancel(); if(!vozElegida) elegirVoz();
   var u=new SpeechSynthesisUtterance(t);
   if(vozElegida){ u.voice=vozElegida; u.lang=vozElegida.lang; } else u.lang='es-ES';
   u.rate=p.rate; u.pitch=p.pitch;
@@ -160,7 +149,6 @@ function renderPanelVoz(){
       lista.appendChild(d);
     })(PERSONAJES[i]);
   }
-  // Selector de voz TTS del sistema
   var selCont=document.getElementById('vozTTSCont'); if(!selCont) return;
   selCont.innerHTML='<div class="voz-tts-label">Voz del sistema:</div>';
   var sel=document.createElement('select'); sel.id='selectorVoz'; sel.className='voz-tts-select';
