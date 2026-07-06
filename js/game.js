@@ -409,12 +409,12 @@ function crearBtnConteo(label,valor){
     document.getElementById('conteoNum').textContent=total;
 
     sonidoToque(conteoAgregado%10);
-    hablar(String(total));
+    hablar(conteoAgregado+'. Resultado: '+total);
 
     if(conteoAgregado===estado.b){
       document.getElementById('conteoTitulo').textContent=estado.a+' '+(conteoEsSuma?'+':'−')+' '+estado.b+' = '+estado.resultado+'!';
       document.getElementById('conteoResultado').classList.add('conteo-correcto');
-      hablar('La respuesta es '+estado.resultado);
+      hablar(estado.a+(conteoEsSuma?' mas ':' menos ')+estado.b+' es '+estado.resultado);
     }
   };
   return d;
