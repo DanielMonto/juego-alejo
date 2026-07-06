@@ -75,8 +75,42 @@ function cambiarPersonaje(id){
   hablar(p.saludo(save.nombre||'Alejo'));
 }
 
-/* ============ VOZ (Speech Synthesis) ============ */
+/* ============ VOZ (Orca neural + Speech Synthesis fallback) ============ */
 var vozOn=true, vozElegida=null, listaVoces=[];
+var orcaInstance=null, orcaReady=false, orcaLoading=false;
+
+// ---- Orca TTS (neural, offline) ----
+function initOrca(){
+  if(orcaInstance||orcaLoading||!save.orcaKey) return;
+  if(typeof OrcaWeb==='undefined'||!OrcaWeb.Orca) return;
+  orcaLoading=true;
+  OrcaWeb.Orca.create(save.orcaKey, {publicPath:'lib/orca_params_es_female.pv'})
+    .then(function(orca){
+      orcaInstance=orca; orcaReady=true; orcaLoading=false;
+      console.log('Orca TTS listo. SampleRate:',orca.sampleRate);
+    })
+    .catch(function(e){
+      orcaLoading=false;
+      console.warn('Orca fallo, usando Speech Synthesis:',e.message||e);
+    });
+}
+
+function hablarConOrca(texto,rate){
+  if(!orcaReady||!orcaInstance) return false;
+  try{
+    orcaInstance.synthesize(texto,{speechRate:rate||1.0}).then(function(result){
+      var pcm=result.pcm;
+      var sr=orcaInstance.sampleRate;
+      if(!audioCtx) initAudio();
+      var buf=audioCtx.createBuffer(1,pcm.length,sr);
+      var data=buf.getChannelData(0);
+      for(var i=0;i<pcm.length;i++) data[i]=pcm[i]/32768;
+      var src=audioCtx.createBufferSource();
+      src.buffer=buf; src.connect(audioCtx.destination); src.start();
+    }).catch(function(){ /* silenciar errores de orca */ });
+    return true;
+  }catch(e){ return false; }
+}
 
 function elegirVoz(){ if(!('speechSynthesis' in window)) return; var voces=window.speechSynthesis.getVoices(); if(!voces||!voces.length) return;
   var esp=voces.filter(function(v){ return /es(-|_)|spanish|español/i.test(v.lang+' '+v.name); });
@@ -107,6 +141,9 @@ function elegirVoz(){ if(!('speechSynthesis' in window)) return; var voces=windo
 function hablar(t){ if(!vozOn) return;
   var p=getPersonaje();
   if(p.sfx){ initAudio(); p.sfx(); }
+  // Intentar Orca (neural, offline) primero
+  if(orcaReady && hablarConOrca(t, p.rate)) return;
+  // Fallback: Speech Synthesis del navegador
   try{ if('speechSynthesis' in window){ window.speechSynthesis.cancel(); if(!vozElegida) elegirVoz();
   var u=new SpeechSynthesisUtterance(t);
   if(vozElegida){ u.voice=vozElegida; u.lang=vozElegida.lang; } else u.lang='es-ES';
@@ -150,7 +187,18 @@ function renderPanelVoz(){
     })(PERSONAJES[i]);
   }
   var selCont=document.getElementById('vozTTSCont'); if(!selCont) return;
-  selCont.innerHTML='<div class="voz-tts-label">Voz del sistema:</div>';
+  // Indicador Orca
+  var orcaStatus=orcaReady?'Voz neural activa':orcaLoading?'Cargando modelo...':'Voz local (navegador)';
+  var orcaClass=orcaReady?'motor-neural':'motor-local';
+  selCont.innerHTML='<div class="voz-motor '+orcaClass+'">'+
+    (orcaReady?'<i data-lucide="sparkles" style="width:14px;height:14px"></i> ':'<i data-lucide="volume-2" style="width:14px;height:14px"></i> ')+
+    orcaStatus+'</div>'+
+    '<div class="voz-orca-key">'+
+    '<label class="voz-tts-label">Picovoice AccessKey (gratis en console.picovoice.ai):</label>'+
+    '<input type="text" id="orcaKeyInput" class="voz-tts-select" placeholder="Pega tu AccessKey aqui" value="'+(save.orcaKey||'')+'">'+
+    '<button class="cfg-btn" style="margin-top:6px" onclick="guardarOrcaKey()">Activar voz neural</button>'+
+    '</div>'+
+    '<div class="voz-tts-label" style="margin-top:10px">Voz local (fallback):</div>';
   var sel=document.createElement('select'); sel.id='selectorVoz'; sel.className='voz-tts-select';
   if(!listaVoces.length){ elegirVoz(); }
   if(!listaVoces.length){ var o=document.createElement('option'); o.textContent='(No hay voces)'; sel.appendChild(o); }
@@ -159,6 +207,16 @@ function renderPanelVoz(){
     if(vozElegida&&v.name===vozElegida.name) opt.selected=true; sel.appendChild(opt); } }
   sel.onchange=function(){ var idx=parseInt(sel.value,10); if(!isNaN(idx)&&listaVoces[idx]){ vozElegida=listaVoces[idx]; save.vozNombre=vozElegida.name; guardar(); hablar('Esta es mi nueva voz'); } };
   selCont.appendChild(sel);
+}
+
+function guardarOrcaKey(){
+  var key=document.getElementById('orcaKeyInput').value.trim();
+  if(!key){ toast('Pega tu AccessKey'); return; }
+  save.orcaKey=key; guardar();
+  orcaInstance=null; orcaReady=false; orcaLoading=false;
+  initOrca();
+  toast('Cargando voz neural...');
+  setTimeout(function(){ renderPanelVoz(); lucide.createIcons(); },3000);
 }
 
 /* Cargar personaje guardado */

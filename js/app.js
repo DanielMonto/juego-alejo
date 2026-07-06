@@ -12,6 +12,7 @@ document.body.addEventListener('touchstart',initAudio,{once:true});
 document.body.addEventListener('click',initAudio,{once:true});
 
 cargarPersonajeGuardado();
+initOrca();
 refrescarChips();
 refrescarCfgBtns();
 lucide.createIcons();

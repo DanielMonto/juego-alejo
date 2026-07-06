@@ -170,6 +170,7 @@ h2 { font-size:clamp(20px,5.5vw,34px); color:#fff; margin:6px 0; text-shadow:2px
 .voz-motor { font-weight:bold; font-size:13px; padding:6px 10px; border-radius:8px; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
 .voz-motor.motor-neural { background:#d7f5df; color:#16a34a; }
 .voz-motor.motor-local { background:#fef3c7; color:#b45309; }
+.voz-orca-key { margin:8px 0; }
 .voz-tts-label { font-weight:bold; color:#073b5c; font-size:14px; margin-bottom:6px; }
 .voz-tts-select { font-family:inherit; font-size:14px; padding:8px 10px; border-radius:10px; border:2px solid #7c5cff;
   background:#fff; color:#073b5c; width:100%; }
