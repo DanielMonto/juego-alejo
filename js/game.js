@@ -13,7 +13,11 @@ var vidas=3;
 /* ---- Config global de dificultad ---- */
 function getMaxRes(){
   var d=save.dificultad||'facil';
-  return d==='facil'?10:d==='normal'?30:100;
+  return d==='facil'?10:d==='normal'?99:999;
+}
+function getMinRes(){
+  var d=save.dificultad||'facil';
+  return d==='facil'?2:d==='normal'?10:100;
 }
 function getModoOp(){ return save.tipoOp||'mixto'; }
 function setDificultad(d){ save.dificultad=d; guardar(); refrescarCfgBtns(); }
@@ -42,7 +46,7 @@ function perderVida(){
     setTimeout(function(){
       var pm=paramsPajaro(pajaroSel);
       bird={x:anchor.x,y:anchor.y,vx:0,vy:0,r:Math.min(W,H)*0.035*pm.rMul,angle:0};
-      dashUsado=false; bombaUsada=false; fase='aim';
+      dashUsado=false; bombaUsada=false; birdBounced=false; fase='aim';
     }, 700);
   }
 }
@@ -176,8 +180,9 @@ function salirDesdeGameOver(){
 
 /* ---- Operación ---- */
 function generarOperacion(maxRes,modoOp){ var tipo=modoOp; if(tipo==='mixto') tipo=Math.random()<0.5?'suma':'resta';
-  var a,b; if(tipo==='suma'){ var t=rnd(2,maxRes); a=rnd(1,t-1); b=t-a; estado.op='+'; estado.resultado=a+b; }
-  else { a=rnd(3,maxRes); b=rnd(1,a-1); estado.op='−'; estado.resultado=a-b; }
+  var minRes=getMinRes();
+  var a,b; if(tipo==='suma'){ var t=rnd(Math.max(2,minRes),maxRes); a=rnd(1,t-1); b=t-a; estado.op='+'; estado.resultado=a+b; }
+  else { a=rnd(Math.max(3,minRes),maxRes); b=rnd(1,a-1); estado.op='−'; estado.resultado=a-b; }
   estado.a=a; estado.b=b; estado.tipo=tipo; }
 function generarOpciones(correcto){ var set={}; set[correcto]=true; var t=0;
   while(Object.keys(set).length<3&&t<60){ t++; var v=correcto+rnd(-3,3); if(v>=0&&v!==correcto) set[v]=true; }
@@ -187,7 +192,7 @@ function generarOpciones(correcto){ var set={}; set[correcto]=true; var t=0;
 function nuevoBloque(x,y,w,h,type){ return {x:x,y:y,w:w,h:h,type:type,vx:0,vy:0,rot:0,vrot:0,cayendo:false,alpha:1}; }
 function colocarEscena(){
   var prBase=Math.min(W,H)*0.045; var pm=paramsPajaro(pajaroSel);
-  bird={x:anchor.x,y:anchor.y,vx:0,vy:0, r:Math.min(W,H)*0.035*pm.rMul, angle:0}; dashUsado=false; bombaUsada=false; rondaResuelta=false;
+  bird={x:anchor.x,y:anchor.y,vx:0,vy:0, r:Math.min(W,H)*0.035*pm.rMul, angle:0}; dashUsado=false; bombaUsada=false; birdBounced=false; rondaResuelta=false;
   var opciones=generarOpciones(estado.resultado);
   var xs=[W*0.55,W*0.73,W*0.90]; pigs=[]; blocks=[];
   for(var i=0;i<3;i++){

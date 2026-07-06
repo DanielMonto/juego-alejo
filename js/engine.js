@@ -4,7 +4,7 @@
 
 var cv,ctx,W,H,groundY,anchor,raf=null;
 var bird,pigs,blocks,particulas,estrellasFondo=[],explosiones=[],rastro=[];
-var fase='aim', aiming=false, tAnim=0, dashActivo=0;
+var fase='aim', aiming=false, tAnim=0, dashActivo=0, birdBounced=false;
 var K=0.26, G, MAXPULL;
 
 function ajustarLienzo(){ cv=document.getElementById('lienzo'); W=cv.clientWidth; H=cv.clientHeight; cv.width=W; cv.height=H;
@@ -45,10 +45,30 @@ function actualizar(){
         tumbar(bk,bird.x); var fr=(bk.type==='stone')?0.86:(bk.type==='ice'?0.9:0.92); if(pajaroSel==='azul') fr=0.97; bird.vx*=fr; bird.vy*=fr; } }
     // Cerditos: impacto directo
     for(var i=0;i<pigs.length;i++){ var p=pigs[i]; if(p.vivo){ if(dist(bird.x,bird.y,p.x,p.y) < p.r+bird.r*0.7){ resolverPig(p); return; } } }
-    // Suelo / fuera de pantalla
-    var tocaSuelo = bird.y>groundY-bird.r*0.3 && (bird.vy>0 || bird.x>anchor.x+bird.r*2);
-    if(tocaSuelo){ falloTiro(); return; }
-    if(bird.x>W+80 || bird.x<-80){ falloTiro(); return; }
+    // Suelo: primer toque = rebota + pierde vida, segundo toque = resetea
+    var tocaSuelo = bird.y>groundY-bird.r*0.3 && bird.vy>0;
+    if(tocaSuelo){
+      if(!birdBounced){
+        birdBounced=true;
+        bird.y=groundY-bird.r*0.3;
+        bird.vy=-Math.abs(bird.vy)*0.4; // rebote
+        bird.vx*=0.5;
+        fase='resolver'; perderVida();
+        // Despues del rebote, volver a fase fly para que siga moviendose
+        setTimeout(function(){ if(fase==='resolver'&&birdBounced) fase='fly'; },100);
+      } else {
+        // Segundo toque: desaparece y resetea
+        fase='resolver';
+        setTimeout(function(){
+          var pm=paramsPajaro(pajaroSel);
+          bird={x:anchor.x,y:anchor.y,vx:0,vy:0,r:Math.min(W,H)*0.035*pm.rMul,angle:0};
+          dashUsado=false; bombaUsada=false; birdBounced=false; fase='aim';
+        },400);
+        return;
+      }
+    }
+    // Fuera de pantalla — pierde vida
+    if(bird.x>W+80 || bird.x<-80){ fase='resolver'; perderVida(); return; }
   }
   for(var j=0;j<pigs.length;j++){ var pg=pigs[j]; if(!pg.vivo){ pg.x+=pg.vx; pg.y+=pg.vy; pg.vy+=G*0.6; pg.rot+=0.2; } if(pg.shake>0){ pg.shake-=0.05; if(pg.shake<0) pg.shake=0; } }
   for(var k=0;k<blocks.length;k++){ var b=blocks[k]; if(b.cayendo){ b.x+=b.vx; b.y+=b.vy; b.vy+=G*0.5; b.rot+=b.vrot; if(b.y>groundY+140) b.alpha=Math.max(0,b.alpha-0.02); } }

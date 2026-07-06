@@ -79,7 +79,10 @@ function renderPersonalizar(){
   document.getElementById('inpNombre').value=save.nombre||'';
   var caja=document.getElementById('coloresCaja'); caja.innerHTML='';
   for(var i=0;i<COLORES_PAJARO.length;i++){ (function(c){ var d=document.createElement('div'); d.className='color-op'+(c===save.colorPajaro?' sel':'');
-    d.style.background=c; d.onclick=function(){ save.colorPajaro=c; guardar(); renderPersonalizar(); hablar('¡Qué lindo color!'); }; caja.appendChild(d); })(COLORES_PAJARO[i]); }
+    var nombres={
+      '#d62828':'Rojo','#ff8a00':'Naranja','#ffcf1a':'Amarillo','#2fb344':'Verde',
+      '#2f7de0':'Azul','#8a4fe0':'Morado','#ff4fa0':'Rosado','#111111':'Negro'};
+    d.style.background=c; d.onclick=function(){ save.colorPajaro=c; guardar(); renderPersonalizar(); hablar(nombres[c]||'Color elegido'); }; caja.appendChild(d); })(COLORES_PAJARO[i]); }
   dibujarPreview();
 }
 function dibujarPreview(){ var cvp=document.getElementById('previewCanvas'); if(!cvp) return; var c=cvp.getContext('2d');
