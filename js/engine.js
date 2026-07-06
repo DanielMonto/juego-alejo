@@ -21,31 +21,57 @@ function dibujarObstaculo(o){
   if(!o.activo) return;
   ctx.save(); ctx.translate(o.x,o.y);
   if(o.tipo==='rebote'){
-    // Roca/burbuja que rebota
     ctx.fillStyle=o.color||'#8a929c'; ctx.strokeStyle=o.borde||'#5c636b'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.arc(0,0,o.r||o.w*0.5,0,7); ctx.fill(); ctx.stroke();
-    // Flechitas indicando rebote
-    ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(-o.r*0.25,-o.r*0.25,o.r*0.3,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.4)'; ctx.beginPath(); ctx.arc(-o.r*0.2,-o.r*0.2,o.r*0.3,0,7); ctx.fill();
   } else if(o.tipo==='viento'){
-    // Zona de viento con flechas
-    ctx.globalAlpha=0.25+0.15*Math.sin(tAnim*0.08);
-    ctx.fillStyle=o.color||'#ffe14d';
-    ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
-    ctx.globalAlpha=0.6;
-    ctx.fillStyle='#fff'; ctx.font='bold '+Math.floor(o.h*0.4)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(o.fx>0?'>>>':o.fx<0?'<<<':o.fy<0?'^^^':'vvv',0,0);
+    ctx.globalAlpha=0.2+0.12*Math.sin(tAnim*0.08);
+    ctx.fillStyle=o.color||'#ffe14d'; ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
+    // Lineas onduladas animadas
+    ctx.globalAlpha=0.4; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+    for(var l=0;l<3;l++){
+      var ly=-o.h*0.3+l*o.h*0.3, offset=Math.sin(tAnim*0.06+l)*o.w*0.1;
+      ctx.beginPath(); ctx.moveTo(-o.w*0.4,ly); ctx.quadraticCurveTo(offset,ly-8,o.w*0.4,ly); ctx.stroke();
+    }
     ctx.globalAlpha=1;
   } else if(o.tipo==='lento'){
-    // Zona pegajosa (arena, lodo)
-    ctx.globalAlpha=0.35;
-    ctx.fillStyle=o.color||'#c9a43c';
-    ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
+    ctx.globalAlpha=0.3; ctx.fillStyle=o.color||'#c9a43c';
+    if(o.r){ ctx.beginPath(); ctx.arc(0,0,o.r,0,7); ctx.fill(); }
+    else ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
+    ctx.globalAlpha=0.5; ctx.fillStyle='rgba(0,0,0,.1)';
+    for(var p=0;p<5;p++) ctx.fillRect(-o.w*0.3+p*o.w*0.15,-o.h*0.05,3,3);
     ctx.globalAlpha=1;
-    // Puntos de textura
-    ctx.fillStyle='rgba(0,0,0,.15)';
-    for(var p=0;p<6;p++) ctx.fillRect(-o.w*0.3+p*o.w*0.12,-o.h*0.1,o.w*0.06,o.h*0.06);
+  } else if(o.tipo==='boost'){
+    // Placa de hielo brillante
+    ctx.globalAlpha=0.35; ctx.fillStyle=o.color||'#b8e8f8';
+    ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
+    ctx.globalAlpha=0.7; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+    ctx.strokeRect(-o.w/2,-o.h/2,o.w,o.h);
+    // Flechas de velocidad
+    ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='bold '+Math.floor(o.h*0.5)+'px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('>>',0,0);
+    ctx.globalAlpha=1;
+  } else if(o.tipo==='impulso'){
+    // Chorro de lava
+    ctx.globalAlpha=0.4+0.2*Math.sin(tAnim*0.12);
+    ctx.fillStyle=o.color||'#ff5a1f'; ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
+    ctx.fillStyle='#ffe14d'; ctx.globalAlpha=0.3+0.2*Math.sin(tAnim*0.15);
+    ctx.fillRect(-o.w*0.3,-o.h*0.4,o.w*0.6,o.h*0.8);
+    ctx.globalAlpha=1;
+  } else if(o.tipo==='miniTnt'){
+    ctx.fillStyle='#d62828'; ctx.strokeStyle='#8a1414'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(0,0,o.r||12,0,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#ffe14d'; ctx.globalAlpha=0.5+0.3*Math.sin(tAnim*0.2);
+    ctx.beginPath(); ctx.arc(0,-o.r*0.8,4,0,7); ctx.fill(); ctx.globalAlpha=1;
+  } else if(o.tipo==='niebla'){
+    // Nube oscura — se transparenta si revelada
+    ctx.globalAlpha=o.revelado?0.15:0.7;
+    ctx.fillStyle=o.color||'#2a2040';
+    ctx.beginPath(); ctx.arc(0,0,o.r||o.w*0.5,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(o.r*0.4,-o.r*0.3,o.r*0.6,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(-o.r*0.4,-o.r*0.2,o.r*0.5,0,7); ctx.fill();
+    ctx.globalAlpha=1;
   } else if(o.tipo==='portal'){
-    // Portal brillante
     ctx.fillStyle=o.color||'#7c5cff'; ctx.globalAlpha=0.5+0.3*Math.sin(tAnim*0.1);
     ctx.beginPath(); ctx.arc(0,0,o.r||20,0,7); ctx.fill();
     ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.globalAlpha=0.8;
@@ -76,17 +102,25 @@ function actualizar(){
       var odist=Math.sqrt(odx*odx+ody*ody);
       var orad=(o.r||o.w*0.5)+bird.r;
       if(odist<orad){
-        if(o.tipo==='rebote'){ // Rebota al pajaro
+        if(o.tipo==='rebote'){ // Rebota al pajaro (rocas, hielo, flotador, luna)
           var nx=odx/odist, ny=ody/odist;
           var dot=bird.vx*nx+bird.vy*ny;
           bird.vx-=2*dot*nx*(o.fuerza||0.8); bird.vy-=2*dot*ny*(o.fuerza||0.8);
           bird.x=o.x+nx*orad; bird.y=o.y+ny*orad;
           sonidoToque(3);
-        } else if(o.tipo==='viento'){ // Empuja al pajaro
+        } else if(o.tipo==='viento'){ // Empuja al pajaro (termica, ola, burbuja, estrella)
           bird.vx+=o.fx||0; bird.vy+=o.fy||0;
-        } else if(o.tipo==='lento'){ // Frena al pajaro
+        } else if(o.tipo==='lento'){ // Frena al pajaro (arena, copo)
           bird.vx*=(o.fuerza||0.7); bird.vy*=(o.fuerza||0.7);
-        } else if(o.tipo==='portal'){ // Teletransporta
+        } else if(o.tipo==='boost'){ // Acelera al pajaro (hielo rapido)
+          bird.vx*=(o.mulX||1.08);
+        } else if(o.tipo==='impulso'){ // Lanza al pajaro (chorro de lava)
+          bird.vy=o.impulsoY||-6; sonidoToque(5);
+        } else if(o.tipo==='miniTnt'){ // Explosion al contacto
+          o.activo=false; estallar(o.x,o.y,o.radio||Math.min(W,H)*0.1,true);
+        } else if(o.tipo==='niebla'){ // Nube oscura: se revela al pasar
+          o.revelado=true;
+        } else if(o.tipo==='portal'){
           if(o.destX!==undefined){ bird.x=o.destX; bird.y=o.destY; }
         }
       }

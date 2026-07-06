@@ -229,47 +229,66 @@ function colocarEscena(){
 /* ---- Obstaculos por mundo ---- */
 function generarObstaculosMundo(){
   var tema=cfgActual.tema;
-  var midX=W*0.38, midY=groundY*0.5;
+  var sz=Math.min(W,H);
+  var dif=cfgActual.pisosMax; // 1-3 como proxy de dificultad
 
   if(tema==='desierto'){
-    // Remolinos de arena que empujan al pajaro hacia arriba
-    obstaculos.push({tipo:'viento',x:W*(0.3+Math.random()*0.15),y:groundY*0.6,w:W*0.08,h:groundY*0.5,
-      fx:0,fy:-0.15,color:'#d4a84488',activo:true});
-    // Rocas en el camino que rebotan
-    if(Math.random()>0.4) obstaculos.push({tipo:'rebote',x:W*(0.35+Math.random()*0.1),y:groundY-Math.min(W,H)*0.08,
-      r:Math.min(W,H)*0.035,color:'#c9a43c',borde:'#8a6d1f',activo:true});
+    // Termica: columna de aire caliente que empuja arriba
+    obstaculos.push({tipo:'viento',x:W*(0.28+Math.random()*0.14),y:groundY*0.55,w:W*0.07,h:groundY*0.5,
+      fx:0,fy:-0.18,color:'rgba(212,168,68,0.25)',activo:true});
+    // Arena lenta (dif 2+)
+    if(dif>=2) obstaculos.push({tipo:'lento',x:W*(0.38+Math.random()*0.1),y:groundY-sz*0.04,w:W*0.12,h:sz*0.06,
+      fuerza:0.94,color:'#d4a844',activo:true});
+    // Cactus rebote (dif 3)
+    if(dif>=3) obstaculos.push({tipo:'rebote',x:W*(0.34+Math.random()*0.08),y:groundY-sz*0.06,
+      r:sz*0.025,color:'#3fae5a',borde:'#2f7d33',fuerza:0.6,activo:true});
   }
   else if(tema==='nieve'){
-    // Bloques de hielo resbalosos que rebotan fuerte
-    var iceY=groundY*(0.4+Math.random()*0.25);
-    obstaculos.push({tipo:'rebote',x:W*(0.32+Math.random()*0.12),y:iceY,
-      r:Math.min(W,H)*0.04,color:'#b8e8f8',borde:'#6fb8d8',fuerza:1.0,activo:true});
-    if(Math.random()>0.5) obstaculos.push({tipo:'rebote',x:W*(0.42+Math.random()*0.08),y:iceY-Math.min(W,H)*0.1,
-      r:Math.min(W,H)*0.03,color:'#dff6ff',borde:'#9fd8f0',fuerza:0.9,activo:true});
+    // Hielo rapido: acelera horizontalmente
+    obstaculos.push({tipo:'boost',x:W*(0.3+Math.random()*0.12),y:groundY-sz*0.02,w:W*0.1,h:sz*0.035,
+      mulX:1.08,color:'#b8e8f8',activo:true});
+    // Copo congelante (dif 2+)
+    if(dif>=2) obstaculos.push({tipo:'lento',x:W*(0.4+Math.random()*0.1),y:groundY*(0.45+Math.random()*0.2),
+      r:sz*0.03,w:sz*0.06,h:sz*0.06,fuerza:0.85,color:'#9fd8f0',activo:true});
+    // Segundo hielo (dif 3)
+    if(dif>=3) obstaculos.push({tipo:'boost',x:W*(0.42+Math.random()*0.08),y:groundY*(0.5+Math.random()*0.15),w:W*0.08,h:sz*0.03,
+      mulX:1.1,color:'#dff6ff',activo:true});
   }
   else if(tema==='volcan'){
-    // Corrientes de lava caliente que empujan hacia arriba
-    obstaculos.push({tipo:'viento',x:W*(0.3+Math.random()*0.2),y:groundY-Math.min(W,H)*0.05,w:W*0.06,h:Math.min(W,H)*0.15,
-      fx:0,fy:-0.25,color:'#ff5a1f44',activo:true});
-    // Mas TNT natural del volcan (ya se maneja en config.tnt)
+    // Chorro de lava: impulsa al pajaro hacia arriba
+    obstaculos.push({tipo:'impulso',x:W*(0.3+Math.random()*0.15),y:groundY-sz*0.04,w:W*0.05,h:sz*0.12,
+      impulsoY:-6,color:'#ff5a1f',activo:true});
+    // Roca caliente rebote (dif 2+)
+    if(dif>=2) obstaculos.push({tipo:'rebote',x:W*(0.4+Math.random()*0.1),y:groundY*(0.5+Math.random()*0.2),
+      r:sz*0.03,color:'#4a3b3b',borde:'#b5342a',fuerza:0.7,activo:true});
+    // Mini TNT volcanico (dif 3)
+    if(dif>=3) obstaculos.push({tipo:'miniTnt',x:W*(0.45+Math.random()*0.1),y:groundY-sz*0.05,
+      r:sz*0.02,radio:sz*0.1,activo:true});
   }
   else if(tema==='playa'){
-    // Ola movil que empuja al pajaro
-    var olaY=groundY*(0.55+Math.random()*0.2);
-    obstaculos.push({tipo:'rebote',x:W*0.35,y:olaY,r:Math.min(W,H)*0.04,
-      color:'#5cb8e8',borde:'#3a8abf',fuerza:0.7,activo:true,
-      movX:1.5,limIzq:W*0.25,limDer:W*0.45});
+    // Ola: empuja horizontalmente, se mueve
+    obstaculos.push({tipo:'viento',x:W*0.35,y:groundY*(0.5+Math.random()*0.2),w:W*0.08,h:sz*0.08,
+      fx:0.16,fy:0,color:'rgba(80,180,255,0.3)',activo:true,
+      movX:1.2,limIzq:W*0.25,limDer:W*0.48});
+    // Burbuja: levanta lentamente (dif 2+)
+    if(dif>=2) obstaculos.push({tipo:'viento',x:W*(0.4+Math.random()*0.1),y:groundY*(0.55+Math.random()*0.15),w:sz*0.06,h:sz*0.06,
+      fx:0,fy:-0.10,color:'rgba(100,200,255,0.25)',activo:true});
+    // Flotador rebote (dif 3)
+    if(dif>=3) obstaculos.push({tipo:'rebote',x:W*(0.38+Math.random()*0.1),y:groundY*(0.45+Math.random()*0.15),
+      r:sz*0.03,color:'#e04040',borde:'#fff',fuerza:0.8,activo:true});
   }
   else if(tema==='noche'){
-    // Portal que teletransporta el pajaro a otra posicion
-    var pX1=W*(0.3+Math.random()*0.1), pY1=groundY*(0.4+Math.random()*0.2);
-    var pX2=W*(0.5+Math.random()*0.15), pY2=groundY*(0.3+Math.random()*0.2);
-    obstaculos.push({tipo:'portal',x:pX1,y:pY1,r:Math.min(W,H)*0.03,
-      destX:pX2,destY:pY2,color:'#7c5cff',activo:true});
-    obstaculos.push({tipo:'portal',x:pX2,y:pY2,r:Math.min(W,H)*0.025,
-      destX:pX1,destY:pY1,color:'#ff5fa2',activo:true});
+    // Nube oscura: oculta parte del camino
+    obstaculos.push({tipo:'niebla',x:W*(0.35+Math.random()*0.15),y:groundY*(0.45+Math.random()*0.2),
+      r:sz*0.08,w:sz*0.16,h:sz*0.16,color:'#2a2040',activo:true,revelado:false});
+    // Estrella guia: empuja suavemente hacia el correcto (dif 2+)
+    if(dif>=2) obstaculos.push({tipo:'viento',x:W*(0.38+Math.random()*0.1),y:groundY*(0.4+Math.random()*0.15),w:sz*0.04,h:sz*0.04,
+      fx:0.12,fy:-0.08,color:'rgba(255,223,100,0.4)',activo:true});
+    // Luna rebote (dif 3)
+    if(dif>=3) obstaculos.push({tipo:'rebote',x:W*(0.42+Math.random()*0.1),y:groundY*(0.3+Math.random()*0.15),
+      r:sz*0.035,color:'#f5f3c0',borde:'#c9b84a',fuerza:0.75,activo:true});
   }
-  // Pradera: sin obstaculos especiales (tutorial)
+  // Pradera: sin obstaculos (tutorial)
 }
 
 function addPig(x,y,num,correcto,pr){
