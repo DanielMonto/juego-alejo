@@ -50,14 +50,10 @@
   <!-- MAPA AVENTURA -->
   <div id="sMapa" class="screen">
     <div id="barraTop"><div class="chip">🏆 <span id="chipCopas2">0</span></div></div>
-    <div id="navMundos">
-      <button class="btn small" id="btnMundoPrev" onclick="cambiarMundo(-1)"><i data-lucide="chevron-left"></i></button>
-      <div id="tituloMundo">🌳 Pradera</div>
-      <button class="btn small" id="btnMundoNext" onclick="cambiarMundo(1)"><i data-lucide="chevron-right"></i></button>
-    </div>
-    <div class="sub" id="subMundo">Elige un reto (5 juegos cada uno)</div>
-    <div class="retos-caja" id="retosCaja"></div>
-    <button class="btn small" onclick="mostrar('sMenu')"><i data-lucide="home"></i> Menú</button>
+    <h2 style="margin-bottom:4px">Aventura</h2>
+    <div class="sub">Elige un mundo</div>
+    <div id="mundosGrid" class="mundos-grid"></div>
+    <button class="btn small" style="margin-top:10px" onclick="mostrar('sMenu')"><i data-lucide="home"></i> Menú</button>
   </div>
 
   <!-- MEDALLERO -->

@@ -28,34 +28,65 @@ function abrirMapa(){ initAudio(); mundoVista=Math.min(save.mundoDesbloqueado, M
 function abrirMedallero(){ refrescarChips(); renderMedallero(); mostrar('sMedallero'); }
 function abrirPersonalizar(){ renderPersonalizar(); mostrar('sPersonalizar'); }
 
-/* ---- Mapa ---- */
-var mundoVista=0;
-function cambiarMundo(d){ var n=mundoVista+d; if(n<0||n>=MUNDOS.length) return; if(n>save.mundoDesbloqueado){ toast('Termina el mundo anterior'); return; } mundoVista=n; renderMapa(); }
+/* ---- Mapa (grid de mundos expandibles) ---- */
+var mundoExpandido=-1;
 function renderMapa(){
-  var m=MUNDOS[mundoVista];
-  document.getElementById('tituloMundo').textContent=m.emoji+' '+m.nombre;
-  document.getElementById('btnMundoPrev').style.visibility = mundoVista>0?'visible':'hidden';
-  document.getElementById('btnMundoNext').style.visibility = (mundoVista<MUNDOS.length-1 && mundoVista<save.mundoDesbloqueado)?'visible':'hidden';
-  var caja=document.getElementById('retosCaja'); caja.innerHTML='';
-  for(var r=0;r<RETOS_POR_MUNDO;r++){ caja.appendChild(nodoReto(mundoVista,r)); }
-  aplicarTemaFondo('sMapa', m.tema);
+  var grid=document.getElementById('mundosGrid'); grid.innerHTML='';
+  for(var m=0;m<MUNDOS.length;m++){
+    var mu=MUNDOS[m];
+    var desbloq=m<=save.mundoDesbloqueado;
+    var terminado=mundoTerminado(m);
+    var expandido=mundoExpandido===m;
+
+    var card=document.createElement('div');
+    card.className='mundo-card'+(desbloq?'':' bloq')+(expandido?' expandido':'')+(terminado?' completado':'');
+    card.style.background=temaGradient(mu.tema);
+
+    // Cabecera del mundo
+    var header=document.createElement('div'); header.className='mundo-header';
+    var progreso=0;
+    if(desbloq){ for(var r=0;r<RETOS_POR_MUNDO;r++){ if(retoCompletado(m,r)) progreso++; } }
+    header.innerHTML='<span class="mundo-emoji">'+mu.emoji+'</span>'+
+      '<span class="mundo-nombre">'+mu.nombre+'</span>'+
+      (desbloq?'<span class="mundo-prog">'+progreso+'/'+RETOS_POR_MUNDO+'</span>':'<i data-lucide="lock" style="width:18px;height:18px;color:rgba(255,255,255,.7)"></i>');
+    card.appendChild(header);
+
+    // Retos (visibles solo si expandido)
+    if(expandido&&desbloq){
+      var retos=document.createElement('div'); retos.className='mundo-retos';
+      for(var r2=0;r2<RETOS_POR_MUNDO;r2++) retos.appendChild(nodoReto(m,r2));
+      card.appendChild(retos);
+    }
+
+    // Click para expandir/colapsar
+    (function(idx,desb){
+      card.onclick=function(){
+        if(!desb){ toast('Termina el mundo anterior'); return; }
+        mundoExpandido=mundoExpandido===idx?-1:idx;
+        renderMapa();
+      };
+    })(m,desbloq);
+
+    grid.appendChild(card);
+  }
+  lucide.createIcons();
 }
 function nodoReto(m,r){
   var d=document.createElement('div'); d.className='reto-nodo';
   var data=retoData(m,r), desbloq=retoDesbloqueado(m,r);
-  if(!desbloq){ d.className+=' bloq'; d.innerHTML='<div class="rn-num">Reto '+(r+1)+'</div><div class="rn-cand"><i data-lucide="lock"></i></div>'; lucide.createIcons({nameAttr:'data-lucide',attrs:{width:36,height:36}}); return d; }
+  if(!desbloq){ d.className+=' bloq'; d.innerHTML='<div class="rn-num">Reto '+(r+1)+'</div><div class="rn-cand"><i data-lucide="lock" style="width:20px;height:20px"></i></div>'; return d; }
   var tro=data?trofeoEmoji(data.trofeo):'--';
   var est=data?('<i data-lucide="star" class="star-filled"></i>'.repeat(data.estrellas)+'<i data-lucide="star" class="star-empty"></i>'.repeat(3-data.estrellas)):('<i data-lucide="star" class="star-empty"></i>'.repeat(3));
   d.innerHTML='<div class="rn-num">Reto '+(r+1)+'</div><div class="rn-tro">'+tro+'</div><div class="rn-estrellas">'+est+'</div>';
-  d.onclick=function(){ iniciarReto(m,r); };
+  d.onclick=function(e){ e.stopPropagation(); iniciarReto(m,r); };
   return d;
 }
 function trofeoEmoji(t){ return t==='copa'?'🏆':t==='oro'?'🥇':t==='plata'?'🥈':t==='bronce'?'🥉':'--'; }
-function aplicarTemaFondo(screenId, tema){
-  var map={ pradera:'linear-gradient(160deg,#7ec8ff,#b6f36b)', desierto:'linear-gradient(160deg,#bfe3ff,#f2d488)',
-    nieve:'linear-gradient(160deg,#dff1ff,#dce9f2)', volcan:'linear-gradient(160deg,#5a2b2b,#8a3b3b)',
-    playa:'linear-gradient(160deg,#8fd0ff,#ffe6a8)', noche:'linear-gradient(160deg,#10163a,#26306a)' };
-  var el=document.getElementById(screenId); if(el) el.style.background=map[tema]||map.pradera;
+function temaGradient(tema){
+  var map={ pradera:'linear-gradient(135deg,#7ec8ff,#b6f36b)', desierto:'linear-gradient(135deg,#e9d5a0,#f2d488)',
+    nieve:'linear-gradient(135deg,#dff1ff,#b8d8e8)', volcan:'linear-gradient(135deg,#8a3b3b,#5a2b2b)',
+    playa:'linear-gradient(135deg,#8fd0ff,#ffe6a8)', noche:'linear-gradient(135deg,#26306a,#10163a)' };
+  return map[tema]||map.pradera;
 }
 
 /* ---- Medallero ---- */

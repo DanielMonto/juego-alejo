@@ -475,165 +475,63 @@ function finReto(){
 }
 function volverAlMapa(){ document.getElementById('cartelTrofeo').classList.remove('active'); renderMapa(); mostrar('sMapa'); lucide.createIcons(); }
 
-/* ---- Panel de ayuda educativo ---- */
-var conteoN=0;
+/* ---- Panel de ayuda: construir el segundo numero ---- */
+var conteoAgregado=0, conteoEsSuma=true;
+
 function abrirConteo(){
-  conteoN=0;
+  conteoAgregado=0;
   var zona=document.getElementById('conteoZona'); zona.innerHTML='';
   var titulo=document.getElementById('conteoTitulo');
   var num=document.getElementById('conteoNum');
-  var maxNum=Math.max(estado.a,estado.b,estado.resultado);
+  var a=estado.a, b=estado.b;
+  conteoEsSuma=estado.tipo==='suma';
+  var signo=conteoEsSuma?'+':'−';
 
-  if(maxNum<=10){
-    // MODO EMOJI: numeros chicos, contar tocando objetos
-    conteoModoEmoji(zona,titulo,num);
-  } else {
-    // MODO POSICIONAL: descomponer en centenas/decenas/unidades
-    conteoModoPosicional(zona,titulo,num);
-  }
+  titulo.textContent=conteoEsSuma?'Sumale a '+a:'Quitale a '+a;
+  num.textContent=String(a);
+
+  // Operacion visual: "5 + [0]"
+  var op=document.createElement('div'); op.className='conteo-operacion';
+  op.innerHTML='<span class="conteo-fijo">'+a+'</span>'+
+    '<span class="conteo-signo">'+signo+'</span>'+
+    '<span class="conteo-construido" id="conteoConstruido">0</span>'+
+    '<span class="conteo-signo">=</span>'+
+    '<span class="conteo-resultado" id="conteoResultado">'+a+'</span>';
+  zona.appendChild(op);
+
+  // Botones
+  var btns=document.createElement('div'); btns.className='conteo-btns';
+  if(b>=100||a>=100) btns.appendChild(crearBtnConteo(conteoEsSuma?'+100':'-100', conteoEsSuma?100:-100));
+  if(b>=10||a>=10) btns.appendChild(crearBtnConteo(conteoEsSuma?'+10':'-10', conteoEsSuma?10:-10));
+  btns.appendChild(crearBtnConteo(conteoEsSuma?'+1':'-1', conteoEsSuma?1:-1));
+  zona.appendChild(btns);
+
   document.getElementById('panelConteo').classList.add('active');
 }
 
-/* --- Modo emoji (1 digito) --- */
-function conteoModoEmoji(zona,titulo,num){
-  var e1=EMOJIS[rnd(0,EMOJIS.length-1)], e2=EMOJIS[rnd(0,EMOJIS.length-1)];
-  if(e2===e1) e2=EMOJIS[(EMOJIS.indexOf(e1)+1)%EMOJIS.length];
-  if(estado.tipo==='suma'){
-    titulo.textContent='Toca y cuenta TODO: '+estado.a+' + '+estado.b; num.textContent='0';
-    var g1=document.createElement('div'); g1.className='cgrupo';
-    for(var i=0;i<estado.a;i++) g1.appendChild(crearObjEmoji(e1));
-    var mas=document.createElement('div'); mas.className='cmas'; mas.textContent='+';
-    var g2=document.createElement('div'); g2.className='cgrupo g2';
-    for(var j=0;j<estado.b;j++) g2.appendChild(crearObjEmoji(e2));
-    zona.appendChild(g1); zona.appendChild(mas); zona.appendChild(g2);
-  } else {
-    titulo.textContent='Tienes '+estado.a+'. Quita '+estado.b; num.textContent='0';
-    var em=EMOJIS[rnd(0,EMOJIS.length-1)];
-    var g=document.createElement('div'); g.className='cgrupo';
-    for(var k=0;k<estado.a;k++) g.appendChild(crearObjEmoji(em,true));
-    zona.appendChild(g);
-  }
-}
-function crearObjEmoji(emoji,quitar){
-  var d=document.createElement('div'); d.className='cobj'; d.textContent=emoji;
-  d.addEventListener('click',function(){
-    var titulo=document.getElementById('conteoTitulo'), num=document.getElementById('conteoNum');
-    if(quitar){
-      if(d.classList.contains('quitado')) return; if(conteoN>=estado.b) return;
-      d.classList.add('quitado'); d.style.opacity=.2; d.style.pointerEvents='none'; d.style.transform='scale(.7) rotate(12deg)';
-      conteoN++; sonidoToque(conteoN); num.textContent=conteoN;
-      if(conteoN>=estado.b){ var quedan=estado.a-estado.b; titulo.textContent='Quitaste '+estado.b+'. Quedan '+quedan; num.textContent=quedan;
-        var vivos=document.querySelectorAll('#conteoZona .cobj:not(.quitado)'); for(var i=0;i<vivos.length;i++) vivos[i].classList.add('ok');
-        setTimeout(function(){hablar('Quitaste '+estado.b+'. Quedan '+quedan);},300);
-      } else { titulo.textContent='Vas '+conteoN+'. Quita '+(estado.b-conteoN)+' mas'; hablar(String(conteoN)); }
-    } else {
-      if(d.classList.contains('ok')) return; d.classList.add('ok'); conteoN++; sonidoToque(conteoN);
-      num.textContent=conteoN; hablar(String(conteoN));
-      if(conteoN>=estado.a+estado.b) titulo.textContent='En total son '+conteoN+'!';
+function crearBtnConteo(label,valor){
+  var d=document.createElement('button'); d.className='conteo-btn conteo-btn-'+Math.abs(valor);
+  d.textContent=label;
+  d.onclick=function(){
+    var nuevo=conteoAgregado+Math.abs(valor);
+    if(nuevo>estado.b) return; // no pasarse
+    conteoAgregado=nuevo;
+    var total=conteoEsSuma?estado.a+conteoAgregado:estado.a-conteoAgregado;
+
+    document.getElementById('conteoConstruido').textContent=conteoAgregado;
+    document.getElementById('conteoResultado').textContent=total;
+    document.getElementById('conteoNum').textContent=total;
+
+    sonidoToque(conteoAgregado%10);
+    hablar(String(total));
+
+    if(conteoAgregado===estado.b){
+      document.getElementById('conteoTitulo').textContent=estado.a+' '+(conteoEsSuma?'+':'−')+' '+estado.b+' = '+estado.resultado+'!';
+      document.getElementById('conteoResultado').classList.add('conteo-correcto');
+      hablar('La respuesta es '+estado.resultado);
     }
-  });
+  };
   return d;
-}
-
-/* --- Modo posicional (2+ digitos) --- */
-function conteoModoPosicional(zona,titulo,num){
-  var a=estado.a, b=estado.b, res=estado.resultado;
-  var esSuma=estado.tipo==='suma';
-  var signo=esSuma?'+':'−';
-  titulo.textContent='Resolvamos paso a paso: '+a+' '+signo+' '+b;
-  num.textContent='?';
-
-  // Descomponer en posiciones
-  var posiciones=[];
-  var maxDigitos=String(Math.max(a,b,res)).length;
-  var nombres=['Unidades','Decenas','Centenas','Millares'];
-  var colores=['#ff5fa2','#3ec7ff','#ff9a3c','#7c5cff'];
-
-  // Crear filas por posicion (de mayor a menor para visual)
-  var tabla=document.createElement('div'); tabla.className='pos-tabla';
-
-  // Cabecera
-  var cab=document.createElement('div'); cab.className='pos-fila pos-cab';
-  cab.innerHTML='<div class="pos-celda"></div><div class="pos-celda pos-num">'+a+'</div><div class="pos-celda pos-signo">'+signo+'</div><div class="pos-celda pos-num">'+b+'</div><div class="pos-celda pos-eq">=</div><div class="pos-celda pos-res">?</div>';
-  tabla.appendChild(cab);
-
-  var llevaAnterior=0;
-  var resultadoParciales=[];
-
-  for(var d=0;d<maxDigitos;d++){
-    var divisor=Math.pow(10,d);
-    var digitoA=Math.floor(a/divisor)%10;
-    var digitoB=Math.floor(b/divisor)%10;
-    var color=colores[d%colores.length];
-    var nombre=nombres[d]||'Pos '+d;
-
-    var fila=document.createElement('div'); fila.className='pos-fila';
-    fila.setAttribute('data-pos',d);
-    fila.style.borderLeft='4px solid '+color;
-
-    if(esSuma){
-      var suma=digitoA+digitoB+llevaAnterior;
-      var digitoRes=suma%10;
-      var lleva=Math.floor(suma/10);
-      var llevaTexto=llevaAnterior>0?' <span class="pos-lleva">+'+llevaAnterior+' que llevamos</span>':'';
-      fila.innerHTML='<div class="pos-nombre" style="color:'+color+'">'+nombre+'</div>'+
-        '<div class="pos-calc">'+digitoA+' + '+digitoB+llevaTexto+' = <strong>'+suma+'</strong></div>'+
-        '<div class="pos-detalle">'+(lleva>0?'Escribe <strong>'+digitoRes+'</strong>, lleva <strong>'+lleva+'</strong>':'Escribe <strong>'+digitoRes+'</strong>')+'</div>';
-      llevaAnterior=lleva;
-      resultadoParciales[d]=digitoRes;
-    } else {
-      var necesitaPrestamo=digitoA-llevaAnterior<digitoB;
-      var digitoAReal=digitoA-llevaAnterior+(necesitaPrestamo?10:0);
-      var resta=digitoAReal-digitoB;
-      var prestamoTexto=llevaAnterior>0?' <span class="pos-lleva">−'+llevaAnterior+' que prestamos</span>':'';
-      var pedirTexto=necesitaPrestamo?' <span class="pos-lleva">Pedimos 10 prestado</span>':'';
-      fila.innerHTML='<div class="pos-nombre" style="color:'+color+'">'+nombre+'</div>'+
-        '<div class="pos-calc">'+digitoA+prestamoTexto+pedirTexto+' − '+digitoB+' = <strong>'+resta+'</strong></div>'+
-        '<div class="pos-detalle">Escribe <strong>'+resta+'</strong></div>';
-      llevaAnterior=necesitaPrestamo?1:0;
-      resultadoParciales[d]=resta;
-    }
-    tabla.appendChild(fila);
-  }
-
-  // Fila resultado
-  var resFila=document.createElement('div'); resFila.className='pos-fila pos-resultado';
-  resFila.innerHTML='<div class="pos-nombre" style="color:#16a34a">Resultado</div>'+
-    '<div class="pos-calc"><strong style="font-size:1.4em;color:#16a34a">'+a+' '+signo+' '+b+' = '+res+'</strong></div>';
-  tabla.appendChild(resFila);
-
-  zona.appendChild(tabla);
-
-  // Bloques visuales base-10
-  var bloques=document.createElement('div'); bloques.className='pos-bloques';
-  bloques.innerHTML='<div class="pos-bloques-titulo">Visualizacion base 10:</div>';
-  var bFila=document.createElement('div'); bFila.className='pos-bloques-fila';
-
-  // Mostrar el resultado con bloques
-  var centenas=Math.floor(res/100), decenas=Math.floor((res%100)/10), unidades=res%10;
-  if(centenas>0){
-    var cDiv=document.createElement('div'); cDiv.className='pos-bloque-grupo';
-    cDiv.innerHTML='<div class="pos-bloque-label" style="color:#ff9a3c">'+centenas+'x100</div>';
-    for(var c=0;c<centenas;c++){ var sq=document.createElement('div');sq.className='pos-bloque-100';cDiv.appendChild(sq); }
-    bFila.appendChild(cDiv);
-  }
-  if(decenas>0){
-    var dDiv=document.createElement('div'); dDiv.className='pos-bloque-grupo';
-    dDiv.innerHTML='<div class="pos-bloque-label" style="color:#3ec7ff">'+decenas+'x10</div>';
-    for(var dd=0;dd<decenas;dd++){ var bar=document.createElement('div');bar.className='pos-bloque-10';bFila.appendChild(bar); }
-    bFila.appendChild(dDiv);
-  }
-  if(unidades>0){
-    var uDiv=document.createElement('div'); uDiv.className='pos-bloque-grupo';
-    uDiv.innerHTML='<div class="pos-bloque-label" style="color:#ff5fa2">'+unidades+'x1</div>';
-    for(var uu=0;uu<unidades;uu++){ var dot=document.createElement('div');dot.className='pos-bloque-1';uDiv.appendChild(dot); }
-    bFila.appendChild(uDiv);
-  }
-  bloques.appendChild(bFila);
-  zona.appendChild(bloques);
-
-  num.textContent=res;
-  hablar('Resolvamos paso a paso');
 }
 
 function cerrarConteo(){ document.getElementById('panelConteo').classList.remove('active'); }

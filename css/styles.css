@@ -39,18 +39,31 @@ h2 { font-size:clamp(20px,5.5vw,34px); color:#fff; margin:6px 0; text-shadow:2px
   font-size:15px; color:#073b5c; font-weight:bold; }
 #selectorVoz { font-family:inherit; font-size:14px; padding:7px 9px; border-radius:10px; border:2px solid #3ec7ff; background:#fff; color:#073b5c; max-width:180px; }
 
-/* MAPA */
-#tituloMundo { font-size:clamp(26px,7vw,46px); color:#fff; text-shadow:3px 3px 0 rgba(0,0,0,.2); margin:2px; }
-#navMundos { display:flex; align-items:center; gap:14px; margin:6px; }
-.retos-caja { display:flex; flex-wrap:wrap; justify-content:center; gap:14px; margin:14px 0; max-width:560px; }
-.reto-nodo { width:clamp(110px,26vw,150px); border-radius:22px; padding:14px 10px; cursor:pointer;
-  background:rgba(255,255,255,.9); box-shadow:0 6px 0 rgba(0,0,0,.18); position:relative; transition:transform .1s; }
-.reto-nodo:active { transform:translateY(4px); }
-.reto-nodo.bloq { filter:grayscale(1); opacity:.55; cursor:not-allowed; }
-.reto-nodo .rn-num { font-size:clamp(20px,5vw,30px); font-weight:bold; color:#073b5c; }
-.reto-nodo .rn-tro { font-size:clamp(34px,9vw,52px); line-height:1; }
-.reto-nodo .rn-estrellas { font-size:clamp(16px,4vw,22px); letter-spacing:1px; }
-.reto-nodo .rn-cand { font-size:clamp(30px,8vw,46px); }
+/* MAPA — Grid de mundos */
+.mundos-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px;
+  max-width:600px; width:100%; padding:0 8px; max-height:60vh; overflow-y:auto; }
+.mundo-card { border-radius:16px; padding:12px; cursor:pointer; color:#fff;
+  box-shadow:0 4px 0 rgba(0,0,0,.18); transition:all .2s; text-align:center; }
+.mundo-card:active { transform:scale(.97); }
+.mundo-card.bloq { filter:grayscale(1); opacity:.5; cursor:not-allowed; }
+.mundo-card.completado { box-shadow:0 4px 0 rgba(0,0,0,.18), inset 0 0 0 3px rgba(255,255,255,.4); }
+.mundo-card.expandido { grid-column:1/-1; }
+.mundo-header { display:flex; align-items:center; justify-content:center; gap:8px; }
+.mundo-emoji { font-size:clamp(28px,7vw,40px); }
+.mundo-nombre { font-size:clamp(16px,4vw,22px); font-weight:bold; text-shadow:1px 1px 0 rgba(0,0,0,.2); }
+.mundo-prog { font-size:13px; background:rgba(255,255,255,.3); padding:2px 8px; border-radius:10px; }
+.mundo-retos { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:10px;
+  padding-top:10px; border-top:2px solid rgba(255,255,255,.25); }
+
+/* Retos dentro de mundo */
+.reto-nodo { width:clamp(80px,22vw,110px); border-radius:14px; padding:10px 8px; cursor:pointer;
+  background:rgba(255,255,255,.9); box-shadow:0 4px 0 rgba(0,0,0,.15); transition:transform .1s; text-align:center; }
+.reto-nodo:active { transform:translateY(3px); }
+.reto-nodo.bloq { filter:grayscale(1); opacity:.5; cursor:not-allowed; }
+.reto-nodo .rn-num { font-size:clamp(14px,3.5vw,18px); font-weight:bold; color:#073b5c; }
+.reto-nodo .rn-tro { font-size:clamp(24px,6vw,34px); line-height:1; }
+.reto-nodo .rn-estrellas { font-size:clamp(12px,3vw,16px); letter-spacing:1px; }
+.reto-nodo .rn-cand { color:#999; }
 
 /* MEDALLERO */
 .medallas { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; max-width:620px; margin:10px 0; }
@@ -224,32 +237,24 @@ h2 { font-size:clamp(20px,5.5vw,34px); color:#fff; margin:6px 0; text-shadow:2px
 /* Menu record chip */
 #menuRecord { display:inline-flex; align-items:center; gap:6px; }
 
-/* Panel posicional (conteo educativo 2+ digitos) */
-.pos-tabla { display:flex; flex-direction:column; gap:6px; text-align:left; width:100%; }
-.pos-fila { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:10px; background:rgba(0,0,0,.03); flex-wrap:wrap; }
-.pos-cab { font-weight:bold; justify-content:center; background:rgba(0,0,0,.07); font-size:clamp(16px,4vw,22px); }
-.pos-celda { }
-.pos-num { color:#073b5c; }
-.pos-signo { color:#999; }
-.pos-eq { color:#999; }
-.pos-res { color:#16a34a; font-weight:bold; }
-.pos-nombre { font-weight:bold; font-size:12px; min-width:70px; }
-.pos-calc { font-size:clamp(13px,3.5vw,16px); color:#073b5c; }
-.pos-detalle { font-size:12px; color:#666; }
-.pos-lleva { color:#e11d48; font-size:11px; }
-.pos-resultado { background:rgba(22,163,74,.1); border-left:4px solid #16a34a !important; }
+/* Panel de conteo: operacion + botones */
+.conteo-operacion { display:flex; align-items:center; justify-content:center; gap:clamp(6px,2vw,12px);
+  font-size:clamp(22px,6vw,36px); font-weight:bold; margin:8px 0; flex-wrap:wrap; }
+.conteo-fijo { color:#073b5c; }
+.conteo-signo { color:#999; }
+.conteo-construido { color:#7c5cff; background:rgba(124,92,255,.12); padding:2px 12px; border-radius:10px;
+  border:2px dashed #7c5cff; min-width:40px; text-align:center; }
+.conteo-resultado { color:#16a34a; }
+.conteo-resultado.conteo-correcto { animation:pop .4s ease; background:rgba(22,163,74,.15); padding:2px 12px; border-radius:10px; }
 
-/* Bloques base 10 */
-.pos-bloques { margin-top:10px; }
-.pos-bloques-titulo { font-weight:bold; color:#073b5c; font-size:13px; margin-bottom:6px; }
-.pos-bloques-fila { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; justify-content:center; }
-.pos-bloque-grupo { display:flex; flex-direction:column; align-items:center; gap:3px; }
-.pos-bloque-label { font-size:11px; font-weight:bold; }
-.pos-bloque-100 { width:36px; height:36px; background:linear-gradient(135deg,#ff9a3c,#ff6a00); border-radius:4px;
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.15); display:inline-block; margin:1px; }
-.pos-bloque-10 { width:36px; height:10px; background:linear-gradient(135deg,#3ec7ff,#1e8fe0); border-radius:3px;
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.15); display:inline-block; margin:1px; }
-.pos-bloque-1 { width:10px; height:10px; background:linear-gradient(135deg,#ff5fa2,#ff2e79); border-radius:2px;
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.15); display:inline-block; margin:1px; }
+/* Botones de conteo +100 / +10 / +1 */
+.conteo-btns { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:8px; }
+.conteo-btn { border:none; border-radius:16px; padding:16px 24px; font-family:inherit;
+  font-size:clamp(22px,6vw,32px); font-weight:bold; color:#fff; cursor:pointer;
+  box-shadow:0 5px 0 rgba(0,0,0,.2); transition:transform .08s; min-width:70px; }
+.conteo-btn:active { transform:translateY(4px); box-shadow:0 1px 0 rgba(0,0,0,.2); }
+.conteo-btn-100 { background:linear-gradient(135deg,#ff9a3c,#ff6a00); }
+.conteo-btn-10 { background:linear-gradient(135deg,#3ec7ff,#1e8fe0); }
+.conteo-btn-1 { background:linear-gradient(135deg,#ff5fa2,#ff2e79); }
 
 .oculto { display:none !important; }
