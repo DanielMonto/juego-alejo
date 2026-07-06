@@ -27,9 +27,13 @@
       <button class="btn libre" onclick="abrirLibre()"><i data-lucide="target"></i> Juego libre</button>
     </div>
     <div class="btn-row">
+      <button class="btn racha" onclick="iniciarRacha()"><i data-lucide="flame"></i> Racha</button>
       <button class="btn medallero" onclick="abrirMedallero()"><i data-lucide="medal"></i> Logros</button>
+    </div>
+    <div class="btn-row">
       <button class="btn perso" onclick="abrirPersonalizar()"><i data-lucide="palette"></i> Mi pájaro</button>
     </div>
+    <div id="menuRecord" class="chip" style="margin-top:10px"><i data-lucide="flame" style="width:16px;height:16px"></i> Mejor racha: <span id="chipRecord">0</span></div>
   </div>
 
   <!-- MAPA AVENTURA -->
@@ -115,6 +119,23 @@
       <div class="txt" id="cartelTxtL">¡Muy bien!</div>
       <div class="op" id="cartelOpL">4 + 2 = 6</div>
       <button class="btn play" onclick="siguienteLibre()">Siguiente <i data-lucide="chevron-right"></i></button>
+    </div>
+  </div>
+
+  <!-- CARTEL GAME OVER (racha) -->
+  <div id="cartelGameOver" class="cartel">
+    <div class="cartelBox">
+      <div class="trofeoGrande">💔</div>
+      <div class="txt" style="color:#e11d48">¡Se acabaron las vidas!</div>
+      <div class="go-stats">
+        <div class="go-stat"><div class="go-stat-num" id="goRacha">0</div><div class="go-stat-label">Racha</div></div>
+        <div class="go-stat"><div class="go-stat-num" id="goMejor">0</div><div class="go-stat-label">Mejor</div></div>
+        <div class="go-stat"><div class="go-stat-num" id="goNivel">--</div><div class="go-stat-label">Nivel</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn play" onclick="reiniciarRacha()"><i data-lucide="rotate-ccw"></i> Otra vez</button>
+        <button class="btn small" onclick="salirRacha()"><i data-lucide="home"></i> Menú</button>
+      </div>
     </div>
   </div>
 

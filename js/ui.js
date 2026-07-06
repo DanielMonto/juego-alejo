@@ -13,6 +13,7 @@ function refrescarChips(){ var v=save.copas;
   var a=document.getElementById('chipCopas'); if(a) a.textContent=v;
   var b=document.getElementById('chipCopas2'); if(b) b.textContent=v;
   var t=document.getElementById('tituloMenu'); if(t) t.textContent='Aventura de '+(save.nombre||'Alejo');
+  var r=document.getElementById('chipRecord'); if(r) r.textContent=save.rachaMax||0;
 }
 
 /* ---- Toast ---- */

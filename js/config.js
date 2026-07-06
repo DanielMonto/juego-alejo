@@ -44,4 +44,15 @@ var LOGROS=[
 
 var COLORES_PAJARO=['#d62828','#ff8a00','#ffcf1a','#2fb344','#2f7de0','#8a4fe0','#ff4fa0','#111111'];
 
+/* Niveles de dificultad para modo racha infinita */
+var RACHA_NIVELES=[
+  {desde:0,  hasta:5,  nombre:'Principiante', maxRes:10, pisosMax:1, mats:['wood'],               tnt:0,    tema:'pradera',  modoOp:'suma'},
+  {desde:6,  hasta:10, nombre:'Aprendiz',     maxRes:15, pisosMax:1, mats:['wood','stone'],        tnt:0,    tema:'pradera',  modoOp:'mixto'},
+  {desde:11, hasta:20, nombre:'Guerrero',     maxRes:20, pisosMax:2, mats:['wood','stone'],        tnt:0.12, tema:'desierto', modoOp:'mixto'},
+  {desde:21, hasta:30, nombre:'Experto',      maxRes:25, pisosMax:2, mats:['wood','stone','ice'],  tnt:0.18, tema:'nieve',    modoOp:'mixto'},
+  {desde:31, hasta:45, nombre:'Maestro',      maxRes:35, pisosMax:3, mats:['stone','wood'],        tnt:0.28, tema:'volcan',   modoOp:'mixto'},
+  {desde:46, hasta:70, nombre:'Leyenda',      maxRes:45, pisosMax:3, mats:['wood','ice'],          tnt:0.22, tema:'playa',    modoOp:'mixto'},
+  {desde:71, hasta:999,nombre:'Inmortal',     maxRes:50, pisosMax:3, mats:['stone','ice','wood'],  tnt:0.35, tema:'noche',    modoOp:'mixto'}
+];
+
 var EMOJIS=['🍎','🌟','🎈','🍓','⚽','🍒','🌸','🍪','🐟','🦋'];
