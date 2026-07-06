@@ -36,23 +36,23 @@ var PERSONAJES=[
     sfx:null},
 
   {id:'chispita', nombre:'Chispita', emoji:'⚡', pitch:2.0,  rate:1.1,  desc:'Voz aguda y tierna',
-    saludo:function(n){ return '¡Chispa chispa! ¡Hola '+n+'!'; },
-    acierto:function(){ var f=['¡Chispa!','¡Chispaaaa!','¡Pika... digo, chispa!']; return f[rnd(0,f.length-1)]; },
+    saludo:function(n){ return '¡Hola '+n+'! ¡Soy Chispita!'; },
+    acierto:function(){ var f=['¡Bien hecho!','¡Eso es!','¡Genial, campeón!']; return f[rnd(0,f.length-1)]; },
     sfx:function(){ beep(1800,0.06,'sine',0.3); setTimeout(function(){ beep(2200,0.06,'sine',0.3); },70); setTimeout(function(){ beep(2600,0.08,'sine',0.25); },140); }},
 
   {id:'grrroto', nombre:'Grrroto',   emoji:'🔥', pitch:0.55, rate:0.85, desc:'Voz grave y poderosa',
-    saludo:function(n){ return '¡Grrrrr! ¡'+n+', a quemar!'; },
-    acierto:function(){ var f=['¡GRRR!','¡Fuego!','¡Arrrde!']; return f[rnd(0,f.length-1)]; },
+    saludo:function(n){ return '¡Yo soy Grrroto! ¡'+n+', vamos a quemar!'; },
+    acierto:function(){ var f=['¡Fuego!','¡Eso arde!','¡Poderoso!']; return f[rnd(0,f.length-1)]; },
     sfx:function(){ beep(120,0.15,'sawtooth',0.3); setTimeout(function(){ beep(80,0.2,'square',0.25); },100); }},
 
   {id:'burbujita', nombre:'Burbujita', emoji:'💧', pitch:1.4, rate:0.95, desc:'Voz acuática con burbujas',
-    saludo:function(n){ return '¡Blub blub! ¡Hola '+n+'!'; },
-    acierto:function(){ var f=['¡Blub!','¡Splash!','¡Burbujitas!']; return f[rnd(0,f.length-1)]; },
+    saludo:function(n){ return '¡Hola '+n+'! Soy Burbujita, vamos a jugar.'; },
+    acierto:function(){ var f=['¡Genial!','¡Qué listo!','¡Bien nadado!']; return f[rnd(0,f.length-1)]; },
     sfx:function(){ for(var i=0;i<5;i++){ (function(d){ setTimeout(function(){ beep(800+rnd(0,600),0.05,'sine',0.15); },d); })(i*60); } }},
 
   {id:'dormilon', nombre:'Dormilón',  emoji:'😴', pitch:0.5,  rate:0.65, desc:'Voz lenta y somnolienta',
-    saludo:function(n){ return '¡Aaaah... bostezo... hola '+n+'...!'; },
-    acierto:function(){ var f=['Zzzz... bien...','¡Mmm... correcto...!','Otro ratito...']; return f[rnd(0,f.length-1)]; },
+    saludo:function(n){ return 'Mmm... hola '+n+'... qué sueño tengo...'; },
+    acierto:function(){ var f=['Mmm... bien hecho...','Correcto... qué sueño...','Otro ratito más...']; return f[rnd(0,f.length-1)]; },
     sfx:function(){ beep(200,0.3,'sine',0.12); setTimeout(function(){ beep(160,0.4,'sine',0.08); },250); }},
 
   {id:'robotin', nombre:'Robotín',   emoji:'🤖', pitch:0.9,  rate:1.2,  desc:'Voz mecánica y precisa',
@@ -82,8 +82,8 @@ function elegirVoz(){ if(!('speechSynthesis' in window)) return; var voces=windo
   var esp=voces.filter(function(v){ return /es(-|_)|spanish|español/i.test(v.lang+' '+v.name); });
   var otras=voces.filter(function(v){ return esp.indexOf(v)===-1; });
   // Priorizar voces Google (neurales, suenan naturales) sobre voces locales SAPI
-  var pref=['google español','google es','google spanish','google us spanish',
-    'helena','sabina','laura','paulina','mónica','monica','esperanza','marisol','female'];
+  var pref=['sabina','google español','google es','google spanish','google us spanish',
+    'helena','laura','paulina','mónica','monica','esperanza','marisol','female'];
   esp.sort(function(a,b){
     function score(v){
       var n=v.name.toLowerCase();
