@@ -81,9 +81,36 @@ var vozOn=true, vozElegida=null, listaVoces=[];
 function elegirVoz(){ if(!('speechSynthesis' in window)) return; var voces=window.speechSynthesis.getVoices(); if(!voces||!voces.length) return;
   var esp=voces.filter(function(v){ return /es(-|_)|spanish|español/i.test(v.lang+' '+v.name); });
   var otras=voces.filter(function(v){ return esp.indexOf(v)===-1; });
-  var pref=['helena','sabina','laura','paulina','mónica','monica','google español','esperanza','marisol','female'];
-  esp.sort(function(a,b){ function p(v){ var n=v.name.toLowerCase(); for(var i=0;i<pref.length;i++){ if(n.indexOf(pref[i])!==-1) return i; } return 99; } return p(a)-p(b); });
+  // Priorizar voces Google (neurales, suenan naturales) sobre voces locales SAPI
+  var pref=['google español','google es','google spanish','google us spanish',
+    'helena','sabina','laura','paulina','mónica','monica','esperanza','marisol','female'];
+  esp.sort(function(a,b){
+    function score(v){
+      var n=v.name.toLowerCase();
+      // Google voices get top priority (score 0-3)
+      if(n.indexOf('google')!==-1) return 0;
+      // Network/remote voices next
+      if(!v.localService) return 4;
+      // Then by preference list
+      for(var i=0;i<pref.length;i++){ if(n.indexOf(pref[i])!==-1) return 5+i; }
+      return 99;
+    }
+    return score(a)-score(b);
+  });
   listaVoces=esp.concat(otras); if(!vozElegida&&listaVoces.length) vozElegida=listaVoces[0]; }
+
+// Chrome a veces tarda en cargar voces de red — reintentar
+var _vozRetries=0;
+function reintentarVoces(){
+  if(_vozRetries>5) return;
+  var voces=window.speechSynthesis.getVoices();
+  var tieneGoogle=voces.some(function(v){ return /google/i.test(v.name); });
+  if(!tieneGoogle && _vozRetries<5){
+    _vozRetries++;
+    setTimeout(function(){ elegirVoz(); reintentarVoces(); }, 500);
+  }
+}
+if('speechSynthesis' in window){ setTimeout(reintentarVoces, 1000); }
 
 function hablar(t){ if(!vozOn) return; try{ if('speechSynthesis' in window){ window.speechSynthesis.cancel(); if(!vozElegida) elegirVoz();
   var p=getPersonaje();

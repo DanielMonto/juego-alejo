@@ -1,4 +1,4 @@
-var CACHE='pajaros-v2';
+var CACHE='pajaros-v3';
 var URLS=[
   './',
   './index.html',
@@ -20,14 +20,36 @@ self.addEventListener('install',function(e){
 });
 
 self.addEventListener('activate',function(e){
-  e.waitUntil(caches.keys().then(function(names){
-    return Promise.all(names.filter(function(n){ return n!==CACHE; }).map(function(n){ return caches.delete(n); }));
-  }));
+  e.waitUntil(
+    caches.keys().then(function(names){
+      return Promise.all(names.filter(function(n){ return n!==CACHE; }).map(function(n){ return caches.delete(n); }));
+    }).then(function(){
+      // Notificar a todos los clientes que hay version nueva
+      return self.clients.matchAll();
+    }).then(function(clients){
+      clients.forEach(function(c){ c.postMessage({type:'UPDATE_AVAILABLE'}); });
+    })
+  );
   self.clients.claim();
 });
 
+// Network-first para archivos JS/CSS (siempre intenta traer lo nuevo)
+// Cache-first para assets estaticos (icons, manifest)
 self.addEventListener('fetch',function(e){
-  e.respondWith(
-    caches.match(e.request).then(function(r){ return r || fetch(e.request); })
-  );
+  var url=e.request.url;
+  if(url.match(/\.(js|css|html)(\?|$)/) || url.endsWith('/')){
+    // Network first: intenta red, si falla usa cache
+    e.respondWith(
+      fetch(e.request).then(function(res){
+        var clone=res.clone();
+        caches.open(CACHE).then(function(c){ c.put(e.request, clone); });
+        return res;
+      }).catch(function(){ return caches.match(e.request); })
+    );
+  } else {
+    // Cache first para el resto
+    e.respondWith(
+      caches.match(e.request).then(function(r){ return r || fetch(e.request); })
+    );
+  }
 });
