@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="body" cx="45%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#ff4444"/>
+      <stop offset="100%" stop-color="#d62828"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#7ec8ff"/>
+  <g transform="translate(256,270)">
+    <!-- cola -->
+    <polygon points="-60,0 -140,-40 -120,0 -140,40" fill="#8b1a1a"/>
+    <!-- cuerpo -->
+    <circle cx="0" cy="0" r="100" fill="url(#body)" stroke="#8b1a1a" stroke-width="6"/>
+    <!-- panza -->
+    <ellipse cx="10" cy="35" rx="50" ry="38" fill="#ffe0c2"/>
+    <!-- cresta -->
+    <line x1="-8" y1="-85" x2="-24" y2="-130" stroke="#8b1a1a" stroke-width="14" stroke-linecap="round"/>
+    <line x1="16" y1="-85" x2="6" y2="-135" stroke="#8b1a1a" stroke-width="14" stroke-linecap="round"/>
+    <!-- ojos -->
+    <circle cx="16" cy="-24" r="26" fill="#fff"/>
+    <circle cx="54" cy="-22" r="22" fill="#fff"/>
+    <circle cx="26" cy="-24" r="11" fill="#222"/>
+    <circle cx="60" cy="-22" r="10" fill="#222"/>
+    <!-- cejas -->
+    <line x1="-10" y1="-65" x2="44" y2="-42" stroke="#8b1a1a" stroke-width="14" stroke-linecap="round"/>
+    <line x1="74" y1="-50" x2="38" y2="-38" stroke="#8b1a1a" stroke-width="14" stroke-linecap="round"/>
+    <!-- pico -->
+    <polygon points="76,-7 126,5 76,21" fill="#ff9500" stroke="#cc6d00" stroke-width="4"/>
+  </g>
+  <!-- texto -->
+  <text x="256" y="460" text-anchor="middle" font-family="Comic Sans MS,sans-serif" font-size="48" font-weight="bold" fill="#fff" stroke="#073b5c" stroke-width="3">PAJAROS</text>
+</svg>

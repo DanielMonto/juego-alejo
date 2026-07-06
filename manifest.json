@@ -1,0 +1,13 @@
+{
+  "name": "Pájaros Matemáticos — Aventura de Alejo",
+  "short_name": "Pájaros",
+  "description": "Juego educativo tipo Angry Birds con sumas y restas",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#87ceeb",
+  "theme_color": "#7ec8ff",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
