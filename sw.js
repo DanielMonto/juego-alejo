@@ -1,4 +1,4 @@
-var CACHE='pajaros-v15';
+var CACHE='pajaros-v16';
 var URLS=[
   './',
   './index.html',
@@ -10,8 +10,6 @@ var URLS=[
   './js/ui.js',
   './js/game.js',
   './js/app.js',
-  './lib/orca-web.min.js',
-  './lib/orca_params_es_female.pv',
   './manifest.json',
   './icons/icon.svg'
 ];
