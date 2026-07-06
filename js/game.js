@@ -110,7 +110,7 @@ function nuevaRondaRacha(){
     toast('Nivel: '+niv.nombre+'!');
   }
   var niv=RACHA_NIVELES[rachaNivelIdx];
-  generarOperacion(cfgActual.maxRes, niv.modoOp);
+  generarOperacion(Math.max(cfgActual.maxRes, getMaxRes()), getModoOp());
   pintarProblema(); colocarEscena(); fase='aim';
   actualizarHudRacha();
   hablar('¿Cuánto es '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+'?');
