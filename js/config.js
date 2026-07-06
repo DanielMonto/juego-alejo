@@ -1,5 +1,5 @@
 /* ============================================================
-   CONFIGURACION — Mundos, pájaros, logros, constantes
+   CONFIG — Mundos, pájaros, logros, dificultad
 ============================================================ */
 
 function rnd(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
@@ -16,18 +16,11 @@ var RETOS_POR_MUNDO=3;
 var RONDAS_POR_RETO=5;
 
 var PAJAROS=[
-  {id:'rojo',    nombre:'Rojo',    color:'#d62828', costo:0,  poder:'El clásico'},
-  {id:'amarillo',nombre:'Rayo',    color:'#ffd23f', costo:3,  poder:'¡Súper veloz! Tócalo al volar para acelerar'},
-  {id:'negro',   nombre:'Bomba',   color:'#333333', costo:6,  poder:'¡Explota y derriba todo alrededor!'},
-  {id:'azul',    nombre:'Grandote',color:'#3a7bd5', costo:10, poder:'Grande y pesado, arrasa con todo'}
+  {id:'rojo',    nombre:'Rojo',    color:0xd62828, costo:0,  poder:'El clásico'},
+  {id:'amarillo',nombre:'Rayo',    color:0xffd23f, costo:3,  poder:'Toca la pantalla en vuelo para acelerar'},
+  {id:'negro',   nombre:'Bomba',   color:0x333333, costo:6,  poder:'Toca en vuelo para explotar'},
+  {id:'azul',    nombre:'Grandote',color:0x3a7bd5, costo:10, poder:'Grande y pesado, arrasa con todo'}
 ];
-
-function paramsPajaro(id){
-  if(id==='amarillo') return {kMul:1.28, rMul:0.85, gMul:0.92, radio:0.6, dash:true, bomba:false};
-  if(id==='negro')    return {kMul:1.0,  rMul:1.05, gMul:1.0,  radio:2.6, dash:false, bomba:true};
-  if(id==='azul')     return {kMul:1.02, rMul:1.5,  gMul:1.15, radio:1.5, dash:false, bomba:false};
-  return {kMul:1.0, rMul:1.0, gMul:1.0, radio:0.7, dash:false, bomba:false};
-}
 
 var LOGROS=[
   {id:'primerReto', em:'🎗️', nom:'¡Empezamos!', desc:'Completa tu primer reto', cond:function(){ return numRetosCompletados()>=1; }},
@@ -43,8 +36,9 @@ var LOGROS=[
 ];
 
 var COLORES_PAJARO=['#d62828','#ff8a00','#ffcf1a','#2fb344','#2f7de0','#8a4fe0','#ff4fa0','#111111'];
+var EMOJIS=['🍎','🌟','🎈','🍓','⚽','🍒','🌸','🍪','🐟','🦋'];
 
-/* Niveles de dificultad para modo racha infinita */
+/* Dificultad para modo racha */
 var RACHA_NIVELES=[
   {desde:0,  hasta:5,  nombre:'Principiante', maxRes:10, pisosMax:1, mats:['wood'],               tnt:0,    tema:'pradera',  modoOp:'suma'},
   {desde:6,  hasta:10, nombre:'Aprendiz',     maxRes:15, pisosMax:1, mats:['wood','stone'],        tnt:0,    tema:'pradera',  modoOp:'mixto'},
@@ -55,4 +49,20 @@ var RACHA_NIVELES=[
   {desde:71, hasta:999,nombre:'Inmortal',     maxRes:50, pisosMax:3, mats:['stone','ice','wood'],  tnt:0.35, tema:'noche',    modoOp:'mixto'}
 ];
 
-var EMOJIS=['🍎','🌟','🎈','🍓','⚽','🍒','🌸','🍪','🐟','🦋'];
+/* Colores por tema */
+var TEMAS={
+  pradera: {sky:0x7ec8ff, ground:0x7ed957, groundDark:0x4caf50, border:0x3d8b40},
+  desierto:{sky:0xbfe3ff, ground:0xf2d488, groundDark:0xd6a94e, border:0xb5863a},
+  nieve:   {sky:0xdff1ff, ground:0xffffff, groundDark:0xdce9f2, border:0xa9c3d6},
+  volcan:  {sky:0x5a2b2b, ground:0x4a3b3b, groundDark:0x2e2626, border:0xb5342a},
+  playa:   {sky:0x8fd0ff, ground:0xffe6a8, groundDark:0xf0c66a, border:0xc99b3a},
+  noche:   {sky:0x10163a, ground:0x2a2f45, groundDark:0x1a1d2e, border:0x3a4060}
+};
+
+/* Colores de materiales */
+var MAT_COLORS={
+  wood: {fill:0xc8842a, stroke:0x7a4a1e},
+  stone:{fill:0x9aa5b0, stroke:0x5c636b},
+  ice:  {fill:0xb8e8f8, stroke:0x6fb8d8},
+  tnt:  {fill:0xd62828, stroke:0x8a1414}
+};
