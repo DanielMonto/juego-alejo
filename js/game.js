@@ -33,7 +33,10 @@ function siguienteLibre(){ document.getElementById('cartelLibre').classList.remo
 // wrap iniciarLibre para cerrar el modal
 var _iniciarLibre=iniciarLibre; iniciarLibre=function(m,n){ cerrarLibrePicker(); _iniciarLibre(m,n); };
 
-function pintarProblema(){ document.getElementById('problema').textContent=estado.a+' '+estado.op+' '+estado.b+' = ?'; }
+function pintarProblema(){
+  document.getElementById('problema').textContent=estado.a+' '+estado.op+' '+estado.b+' = ?';
+  if(modo==='racha') actualizarHudRacha();
+}
 function salirJuego(){ cerrarConteo(); ocultarHudRacha(); refrescarChips(); if(modo==='aventura') { renderMapa(); mostrar('sMapa'); } else mostrar('sMenu'); }
 
 /* ============ MODO RACHA INFINITA ============ */
@@ -75,6 +78,8 @@ function mostrarHudRacha(){
   var hud=document.getElementById('hudRacha');
   if(!hud){ hud=document.createElement('div'); hud.id='hudRacha'; document.getElementById('juego').appendChild(hud); }
   hud.style.display='flex';
+  // Ocultar el #problema original — el hudRacha lo integra
+  document.getElementById('problema').style.display='none';
   actualizarHudRacha();
 }
 
@@ -89,16 +94,21 @@ function actualizarHudRacha(){
   var corazones='';
   for(var i=0;i<3;i++) corazones+=(i<rachaVidas?'<span class="racha-vida">&#x2764;</span>':'<span class="racha-vida muerta">&#x2764;</span>');
   var fuego=rachaRacha>=10?' racha-fuego':'';
+  var probTxt=estado.a+' '+estado.op+' '+estado.b+' = ?';
   hud.innerHTML=
     '<div class="racha-vidas">'+corazones+'</div>'+
-    '<div class="racha-counter'+fuego+'">'+rachaRacha+'</div>'+
-    '<div class="racha-nivel">'+niv.nombre+'</div>'+
-    '<div class="racha-barra"><div class="racha-barra-fill" style="width:'+progreso+'%"></div></div>'+
-    '<div class="racha-record">Mejor: '+save.rachaMax+'</div>';
+    '<div class="racha-problema">'+probTxt+'</div>'+
+    '<div class="racha-derecha">'+
+      '<div class="racha-counter'+fuego+'">'+rachaRacha+'</div>'+
+      '<div><div class="racha-nivel">'+niv.nombre+'</div>'+
+      '<div class="racha-barra"><div class="racha-barra-fill" style="width:'+progreso+'%"></div></div>'+
+      '<div class="racha-record">Mejor: '+save.rachaMax+'</div></div>'+
+    '</div>';
 }
 
 function ocultarHudRacha(){
   var hud=document.getElementById('hudRacha'); if(hud) hud.style.display='none';
+  document.getElementById('problema').style.display='';
 }
 
 function rachaFallo(){
