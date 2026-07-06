@@ -191,280 +191,97 @@ function generarOpciones(correcto){ var set={}; set[correcto]=true; var t=0;
   while(Object.keys(set).length<3&&t<60){ t++; var v=correcto+rnd(-3,3); if(v>=0&&v!==correcto) set[v]=true; }
   var arr=Object.keys(set).map(Number); for(var i=arr.length-1;i>0;i--){ var j=rnd(0,i); var x=arr[i]; arr[i]=arr[j]; arr[j]=x; } return arr; }
 
-/* ---- Construir escena ---- */
+
+/* ============================================================
+   GENERADOR DE NIVELES — patrones + rutas + obstaculos
+============================================================ */
 function nuevoBloque(x,y,w,h,type){ return {x:x,y:y,w:w,h:h,type:type,vx:0,vy:0,rot:0,vrot:0,cayendo:false,alpha:1}; }
 function mat(k){ var m=cfgActual.mats; return m[((k%m.length)+m.length)%m.length]; }
-function addTNT(px,y,pr){
-  if(cfgActual.tnt>0&&Math.random()<Math.min(0.6,cfgActual.tnt+0.25))
-    blocks.push(nuevoBloque(px,y,pr*0.8,pr*0.8,'tnt'));
-}
-function addBloque(x,y,w,h,m){ blocks.push(nuevoBloque(x,y,w,h,m)); }
+
+var PATRONES=[
+  {pos:[{x:0.62,y:0.68},{x:0.70,y:0.58},{x:0.78,y:0.68}]},
+  {pos:[{x:0.60,y:0.72},{x:0.72,y:0.48},{x:0.84,y:0.72}]},
+  {pos:[{x:0.55,y:0.72},{x:0.68,y:0.60},{x:0.81,y:0.48}]},
+  {pos:[{x:0.55,y:0.45},{x:0.68,y:0.58},{x:0.81,y:0.72}]},
+  {pos:[{x:0.62,y:0.72},{x:0.62,y:0.52},{x:0.80,y:0.52}]},
+  {pos:[{x:0.58,y:0.72},{x:0.74,y:0.72},{x:0.72,y:0.42}]},
+  {pos:[{x:0.64,y:0.70},{x:0.78,y:0.70},{x:0.82,y:0.54}]},
+  {pos:[{x:0.60,y:0.60},{x:0.78,y:0.60},{x:0.72,y:0.74}]},
+  {pos:[{x:0.58,y:0.52},{x:0.74,y:0.52},{x:0.70,y:0.76}]},
+  {pos:[{x:0.58,y:0.68},{x:0.72,y:0.68},{x:0.86,y:0.50}]}
+];
 
 function colocarEscena(){
   var pm=paramsPajaro(pajaroSel);
   bird={x:anchor.x,y:anchor.y,vx:0,vy:0, r:Math.min(W,H)*0.035*pm.rMul, angle:0};
   dashUsado=false; bombaUsada=false; birdBounced=false; rondaResuelta=false;
-  var opciones=generarOpciones(estado.resultado);
-  pigs=[]; blocks=[];
-  particulas=[]; explosiones=[]; rastro=[]; obstaculos=[];
+  pigs=[]; blocks=[]; particulas=[]; explosiones=[]; rastro=[]; obstaculos=[];
   estrellasFondo=[];
   if(cfgActual.tema==='noche'){ for(var s=0;s<40;s++) estrellasFondo.push({x:Math.random()*W,y:Math.random()*groundY*0.9,r:Math.random()*1.8+0.6}); }
 
-  // Obstaculos especiales segun mundo
+  var opciones=generarOpciones(estado.resultado);
+  var dif=cfgActual.pisosMax;
+  var pr=Math.min(W,H)*0.035, u=pr*0.9, ww=pr*0.45, bh=pr*0.5;
+
+  // 1. Elegir patron y mezclar
+  var patron=PATRONES[rnd(0,PATRONES.length-1)];
+  var idx=[0,1,2];
+  for(var si=2;si>0;si--){var sj=rnd(0,si),st=idx[si];idx[si]=idx[sj];idx[sj]=st;}
+  var indiceCorrecto=rnd(0,2);
+
+  // 2. Colocar cerdos
+  for(var i=0;i<3;i++){
+    var pos=patron.pos[idx[i]];
+    var px=W*pos.x, py=groundY*pos.y;
+    if(py>groundY-pr) py=groundY-pr;
+    if(py<groundY*0.25) py=groundY*0.25;
+    pigs.push({x:px,y:py,r:pr*0.7,num:opciones[i],correcto:i===indiceCorrecto,
+      vivo:true,vx:0,vy:0,rot:0,shake:0,bob:Math.random()*6});
+  }
+  var cc=pigs[indiceCorrecto];
+
+  // 3. Plataformas para cerdos elevados
+  for(var k=0;k<3;k++){
+    var pig=pigs[k];
+    if(pig.y<groundY-pr*2){
+      blocks.push(nuevoBloque(pig.x, pig.y+pr*0.8, pr*2.2, bh, mat(k)));
+      var sy=pig.y+pr*0.8+bh;
+      while(sy<groundY-bh){
+        blocks.push(nuevoBloque(pig.x-pr*0.7,sy+u*0.4, ww,u*0.8, mat(k)));
+        blocks.push(nuevoBloque(pig.x+pr*0.7,sy+u*0.4, ww,u*0.8, mat(k+1)));
+        sy+=u;
+      }
+    }
+  }
+
+  // 4. Defensa del cerdo correcto
+  var nb=dif<=1?rnd(0,1):dif===2?rnd(1,3):rnd(2,4);
+  for(var b=0;b<nb;b++){
+    var bx=cc.x+(b%2===0?-1:1)*pr*(1.0+b*0.35);
+    var by=cc.y-pr*(0.3+b*0.25);
+    if(by<groundY*0.2) by=groundY*0.25;
+    blocks.push(nuevoBloque(bx,by, ww,u, mat(b)));
+  }
+  if(dif>=2&&Math.random()>0.4){
+    blocks.push(nuevoBloque(cc.x, cc.y-pr*1.5, pr*2.5, bh, mat(0)));
+  }
+
+  // 5. Defensa ligera en incorrectos
+  for(var j=0;j<3;j++){
+    if(j===indiceCorrecto) continue;
+    var ip=pigs[j];
+    if(Math.random()>0.45) blocks.push(nuevoBloque(ip.x-pr*0.8,ip.y-pr*0.3, ww,u*0.8, mat(j)));
+    if(dif>=2&&Math.random()>0.55) blocks.push(nuevoBloque(ip.x+pr*0.8,ip.y-pr*0.3, ww,u*0.8, mat(j+1)));
+  }
+
+  // 6. TNT
+  if(cfgActual.tnt>0&&Math.random()<cfgActual.tnt+0.2){
+    var tntP=pigs[(indiceCorrecto+1)%3];
+    blocks.push(nuevoBloque(tntP.x+pr*(Math.random()>0.5?1.2:-1.2), tntP.y+pr*0.2, pr*0.7, pr*0.7, 'tnt'));
+  }
+
+  // 7. Obstaculos de mundo
   generarObstaculosMundo();
-
-  // Elegir template de nivel aleatorio
-  var template=rnd(0,5);
-  var pr=Math.min(W,H)*0.035;
-  var u=pr*0.9, ww=pr*0.45, bh=pr*0.5;
-
-  if(template===0) nivelTresColumnas(opciones,pr,u,ww,bh);
-  else if(template===1) nivelFuerteGrande(opciones,pr,u,ww,bh);
-  else if(template===2) nivelPlataformas(opciones,pr,u,ww,bh);
-  else if(template===3) nivelMuralla(opciones,pr,u,ww,bh);
-  else if(template===4) nivelMixto(opciones,pr,u,ww,bh);
-  else nivelTrinchera(opciones,pr,u,ww,bh);
-}
-
-/* ---- Obstaculos por mundo ---- */
-function generarObstaculosMundo(){
-  var tema=cfgActual.tema;
-  var sz=Math.min(W,H);
-  var dif=cfgActual.pisosMax; // 1-3 como proxy de dificultad
-
-  if(tema==='desierto'){
-    // Termica: columna de aire caliente que empuja arriba
-    obstaculos.push({tipo:'viento',x:W*(0.28+Math.random()*0.14),y:groundY*0.55,w:W*0.07,h:groundY*0.5,
-      fx:0,fy:-0.18,color:'rgba(212,168,68,0.25)',activo:true});
-    // Arena lenta (dif 2+)
-    if(dif>=2) obstaculos.push({tipo:'lento',x:W*(0.38+Math.random()*0.1),y:groundY-sz*0.04,w:W*0.12,h:sz*0.06,
-      fuerza:0.94,color:'#d4a844',activo:true});
-    // Cactus rebote (dif 3)
-    if(dif>=3) obstaculos.push({tipo:'rebote',x:W*(0.34+Math.random()*0.08),y:groundY-sz*0.06,
-      r:sz*0.025,color:'#3fae5a',borde:'#2f7d33',fuerza:0.6,activo:true});
-  }
-  else if(tema==='nieve'){
-    // Hielo rapido: acelera horizontalmente
-    obstaculos.push({tipo:'boost',x:W*(0.3+Math.random()*0.12),y:groundY-sz*0.02,w:W*0.1,h:sz*0.035,
-      mulX:1.08,color:'#b8e8f8',activo:true});
-    // Copo congelante (dif 2+)
-    if(dif>=2) obstaculos.push({tipo:'lento',x:W*(0.4+Math.random()*0.1),y:groundY*(0.45+Math.random()*0.2),
-      r:sz*0.03,w:sz*0.06,h:sz*0.06,fuerza:0.85,color:'#9fd8f0',activo:true});
-    // Segundo hielo (dif 3)
-    if(dif>=3) obstaculos.push({tipo:'boost',x:W*(0.42+Math.random()*0.08),y:groundY*(0.5+Math.random()*0.15),w:W*0.08,h:sz*0.03,
-      mulX:1.1,color:'#dff6ff',activo:true});
-  }
-  else if(tema==='volcan'){
-    // Chorro de lava: impulsa al pajaro hacia arriba
-    obstaculos.push({tipo:'impulso',x:W*(0.3+Math.random()*0.15),y:groundY-sz*0.04,w:W*0.05,h:sz*0.12,
-      impulsoY:-6,color:'#ff5a1f',activo:true});
-    // Roca caliente rebote (dif 2+)
-    if(dif>=2) obstaculos.push({tipo:'rebote',x:W*(0.4+Math.random()*0.1),y:groundY*(0.5+Math.random()*0.2),
-      r:sz*0.03,color:'#4a3b3b',borde:'#b5342a',fuerza:0.7,activo:true});
-    // Mini TNT volcanico (dif 3)
-    if(dif>=3) obstaculos.push({tipo:'miniTnt',x:W*(0.45+Math.random()*0.1),y:groundY-sz*0.05,
-      r:sz*0.02,radio:sz*0.1,activo:true});
-  }
-  else if(tema==='playa'){
-    // Ola: empuja horizontalmente, se mueve
-    obstaculos.push({tipo:'viento',x:W*0.35,y:groundY*(0.5+Math.random()*0.2),w:W*0.08,h:sz*0.08,
-      fx:0.16,fy:0,color:'rgba(80,180,255,0.3)',activo:true,
-      movX:1.2,limIzq:W*0.25,limDer:W*0.48});
-    // Burbuja: levanta lentamente (dif 2+)
-    if(dif>=2) obstaculos.push({tipo:'viento',x:W*(0.4+Math.random()*0.1),y:groundY*(0.55+Math.random()*0.15),w:sz*0.06,h:sz*0.06,
-      fx:0,fy:-0.10,color:'rgba(100,200,255,0.25)',activo:true});
-    // Flotador rebote (dif 3)
-    if(dif>=3) obstaculos.push({tipo:'rebote',x:W*(0.38+Math.random()*0.1),y:groundY*(0.45+Math.random()*0.15),
-      r:sz*0.03,color:'#e04040',borde:'#fff',fuerza:0.8,activo:true});
-  }
-  else if(tema==='noche'){
-    // Nube oscura: oculta parte del camino
-    obstaculos.push({tipo:'niebla',x:W*(0.35+Math.random()*0.15),y:groundY*(0.45+Math.random()*0.2),
-      r:sz*0.08,w:sz*0.16,h:sz*0.16,color:'#2a2040',activo:true,revelado:false});
-    // Estrella guia: empuja suavemente hacia el correcto (dif 2+)
-    if(dif>=2) obstaculos.push({tipo:'viento',x:W*(0.38+Math.random()*0.1),y:groundY*(0.4+Math.random()*0.15),w:sz*0.04,h:sz*0.04,
-      fx:0.12,fy:-0.08,color:'rgba(255,223,100,0.4)',activo:true});
-    // Luna rebote (dif 3)
-    if(dif>=3) obstaculos.push({tipo:'rebote',x:W*(0.42+Math.random()*0.1),y:groundY*(0.3+Math.random()*0.15),
-      r:sz*0.035,color:'#f5f3c0',borde:'#c9b84a',fuerza:0.75,activo:true});
-  }
-  // Pradera: sin obstaculos (tutorial)
-}
-
-function addPig(x,y,num,correcto,pr){
-  var r=pr*0.7;
-  pigs.push({x:x,y:y,r:r,num:num,correcto:correcto,vivo:true,vx:0,vy:0,rot:0,shake:0,bob:Math.random()*6});
-}
-
-/* --- Template 0: Tres columnas (clasico mejorado) --- */
-function nivelTresColumnas(opc,pr,u,ww,bh){
-  var xs=[W*0.52,W*0.72,W*0.90];
-  // Cada columna con estilo aleatorio
-  for(var i=0;i<3;i++){
-    var px=xs[i], pisos=rnd(1,cfgActual.pisosMax);
-    var tieneForte=Math.random()>0.15; // 15% sin fuerte (expuesto)
-    var pigY;
-    if(tieneForte){
-      var y=groundY;
-      for(var p=0;p<pisos;p++){
-        addBloque(px,y-bh/2, pr*2.6,bh, mat(p)); y-=bh;
-        addBloque(px-pr*1.0,y-u/2, ww,u, mat(p+1));
-        addBloque(px+pr*1.0,y-u/2, ww,u, mat(p+2)); y-=u;
-      }
-      addBloque(px,y-bh/2, pr*2.6,bh, mat(pisos));
-      addTNT(px,groundY-bh-u*0.4,pr);
-      pigY=groundY-bh-pr*0.5;
-    } else { pigY=groundY-pr*0.7; }
-    addPig(px,pigY,opc[i],opc[i]===estado.resultado,pr);
-  }
-}
-
-/* --- Template 1: Un fuerte grande con 3 cerdos adentro --- */
-function nivelFuerteGrande(opc,pr,u,ww,bh){
-  var cx=W*0.72, ancho=W*0.28;
-  var pisos=Math.max(2,rnd(1,cfgActual.pisosMax)+1);
-  // Base
-  addBloque(cx,groundY-bh/2, ancho,bh, mat(0));
-  var y=groundY-bh;
-  // Muros exteriores
-  for(var p=0;p<pisos;p++){
-    addBloque(cx-ancho*0.45,y-u/2, ww,u, mat(p));
-    addBloque(cx+ancho*0.45,y-u/2, ww,u, mat(p+1));
-    // Divisores internos
-    if(p===0){
-      addBloque(cx-ancho*0.15,y-u/2, ww,u, mat(p+2));
-      addBloque(cx+ancho*0.15,y-u/2, ww,u, mat(p));
-    }
-    y-=u;
-    addBloque(cx,y-bh/2, ancho,bh, mat(p+1));
-    y-=bh;
-  }
-  addTNT(cx,groundY-bh-u*0.4,pr);
-  // Cerdo izq (abajo)
-  addPig(cx-ancho*0.3, groundY-bh-pr*0.5, opc[0],opc[0]===estado.resultado,pr);
-  // Cerdo centro (abajo)
-  addPig(cx, groundY-bh-pr*0.5, opc[1],opc[1]===estado.resultado,pr);
-  // Cerdo derecha (arriba)
-  addPig(cx+ancho*0.3, groundY-bh-(u+bh)-pr*0.5, opc[2],opc[2]===estado.resultado,pr);
-}
-
-/* --- Template 2: Plataformas a distintas alturas --- */
-function nivelPlataformas(opc,pr,u,ww,bh){
-  var alturas=[0, rnd(1,2), rnd(2,3)];
-  // Mezclar para que la correcta no siempre este en la misma posicion
-  for(var s=alturas.length-1;s>0;s--){ var j=rnd(0,s),tmp=alturas[s];alturas[s]=alturas[j];alturas[j]=tmp; }
-  var xs=[W*0.52, W*0.72, W*0.88];
-  for(var i=0;i<3;i++){
-    var px=xs[i], niveles=alturas[i];
-    var y=groundY;
-    // Columna de soporte
-    for(var p=0;p<niveles;p++){
-      addBloque(px-pr*0.6,y-u/2, ww,u, mat(p));
-      addBloque(px+pr*0.6,y-u/2, ww,u, mat(p+1));
-      y-=u;
-      addBloque(px,y-bh/2, pr*1.8,bh, mat(p));
-      y-=bh;
-    }
-    // Plataforma final con muros
-    addBloque(px,y-bh/2, pr*2.4,bh, mat(i));
-    y-=bh;
-    addBloque(px-pr*0.9,y-u/2, ww,u, mat(i+1));
-    addBloque(px+pr*0.9,y-u/2, ww,u, mat(i+2));
-    y-=u;
-    addBloque(px,y-bh/2, pr*2.4,bh, mat(i));
-    addTNT(px,y+u*0.3,pr);
-    addPig(px, y+u*0.5+pr*0.2, opc[i],opc[i]===estado.resultado,pr);
-  }
-}
-
-/* --- Template 3: Muralla con cerdos detras --- */
-function nivelMuralla(opc,pr,u,ww,bh){
-  var wallX=W*0.58;
-  var pisos=Math.max(2,rnd(1,cfgActual.pisosMax)+1);
-  // Muralla vertical
-  for(var p=0;p<pisos;p++){
-    addBloque(wallX, groundY-p*u-u/2, ww*1.5, u, mat(p));
-  }
-  // Techo de la muralla
-  addBloque(wallX, groundY-pisos*u-bh/2, pr*2, bh, mat(0));
-  addTNT(wallX, groundY-u*0.4, pr);
-
-  // Cerdos detras de la muralla a diferentes posiciones
-  var pigXs=[W*0.68, W*0.78, W*0.90];
-  var pigYs=[groundY-pr*0.7, groundY-pr*0.7, groundY-pr*0.7];
-  // Un cerdo en altura
-  var elevado=rnd(0,2);
-  // Plataforma elevada para ese cerdo
-  addBloque(pigXs[elevado], groundY-u-bh/2, pr*2, bh, mat(1));
-  addBloque(pigXs[elevado]-pr*0.7, groundY-u/2, ww, u, mat(2));
-  addBloque(pigXs[elevado]+pr*0.7, groundY-u/2, ww, u, mat(0));
-  pigYs[elevado]=groundY-u-bh-pr*0.5;
-  // Fuertecito para otro cerdo
-  var protegido=(elevado+1)%3;
-  addBloque(pigXs[protegido]-pr*1.0, groundY-u/2, ww, u, mat(1));
-  addBloque(pigXs[protegido]+pr*1.0, groundY-u/2, ww, u, mat(2));
-  addBloque(pigXs[protegido], groundY-u-bh/2, pr*2.4, bh, mat(0));
-
-  for(var i=0;i<3;i++) addPig(pigXs[i],pigYs[i],opc[i],opc[i]===estado.resultado,pr);
-}
-
-/* --- Template 4: Mixto (1 expuesto, 1 protegido, 1 elevado) --- */
-function nivelMixto(opc,pr,u,ww,bh){
-  var order=[0,1,2];
-  for(var s=2;s>0;s--){var j=rnd(0,s),tmp=order[s];order[s]=order[j];order[j]=tmp;}
-
-  // Expuesto (sin fuerte)
-  var ex=order[0], exX=W*(0.5+ex*0.18);
-  addPig(exX, groundY-pr*0.7, opc[ex],opc[ex]===estado.resultado,pr);
-
-  // Protegido (bunker)
-  var pt=order[1], ptX=W*(0.5+pt*0.18);
-  addBloque(ptX, groundY-bh/2, pr*3.2, bh, mat(0));
-  addBloque(ptX-pr*1.3, groundY-bh-u/2, ww, u, mat(1));
-  addBloque(ptX+pr*1.3, groundY-bh-u/2, ww, u, mat(2));
-  addBloque(ptX-pr*1.8, groundY-bh-u/2, ww, u, mat(0)); // muro frontal
-  addBloque(ptX, groundY-bh-u-bh/2, pr*3.2, bh, mat(1));
-  addTNT(ptX, groundY-bh-u*0.4, pr);
-  addPig(ptX, groundY-bh-pr*0.5, opc[pt],opc[pt]===estado.resultado,pr);
-
-  // Elevado (torre)
-  var el=order[2], elX=W*(0.5+el*0.18);
-  var pisos=rnd(2,Math.max(2,cfgActual.pisosMax));
-  var y=groundY;
-  for(var p=0;p<pisos;p++){
-    addBloque(elX, y-bh/2, pr*2, bh, mat(p));
-    y-=bh;
-    addBloque(elX-pr*0.7, y-u/2, ww, u, mat(p+1));
-    addBloque(elX+pr*0.7, y-u/2, ww, u, mat(p+2));
-    y-=u;
-  }
-  addBloque(elX, y-bh/2, pr*2, bh, mat(0));
-  addPig(elX, y+u*0.3, opc[el],opc[el]===estado.resultado,pr);
-}
-
-/* --- Template 5: Trinchera (cerdos en hoyos entre bloques) --- */
-function nivelTrinchera(opc,pr,u,ww,bh){
-  var startX=W*0.48, spacing=W*0.17;
-  for(var i=0;i<3;i++){
-    var px=startX+i*spacing;
-    // Muros laterales formando trinchera
-    addBloque(px-pr*1.2, groundY-u/2, ww, u, mat(i));
-    addBloque(px+pr*1.2, groundY-u/2, ww, u, mat(i+1));
-    // Piso de trinchera
-    addBloque(px, groundY-bh/2, pr*2.0, bh, mat(i+2));
-    // Techo aleatorio (a veces abierto)
-    if(Math.random()>0.35){
-      addBloque(px, groundY-u-bh/2, pr*2.8, bh, mat(i));
-      // Segundo nivel aleatorio
-      if(rnd(0,cfgActual.pisosMax)>1){
-        addBloque(px-pr*0.8, groundY-u-bh-u/2, ww, u, mat(i+1));
-        addBloque(px+pr*0.8, groundY-u-bh-u/2, ww, u, mat(i+2));
-        addBloque(px, groundY-u-bh-u-bh/2, pr*2.2, bh, mat(i));
-      }
-    }
-    addTNT(px, groundY-bh-pr*0.3, pr);
-    addPig(px, groundY-bh-pr*0.5, opc[i],opc[i]===estado.resultado,pr);
-  }
 }
 
 /* ---- Selector de pájaro ---- */
