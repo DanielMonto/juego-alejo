@@ -6,7 +6,8 @@ var CLAVE='pajarosAventura_v1';
 var saveDefault={
   nombre:'ALEJO', colorPajaro:'#d62828',
   copas:0, copasPerfectas:0, aciertosTotales:0, rachaMax:0,
-  mundoDesbloqueado:0, retos:{}, pajaros:['rojo'], logros:[], tntUsado:false, mundosFin:[]
+  mundoDesbloqueado:0, retos:{}, pajaros:['rojo'], logros:[], tntUsado:false, mundosFin:[],
+  personaje:'normal'
 };
 var save=cargar();
 

@@ -11,6 +11,7 @@ document.getElementById('mascotaMenu').addEventListener('click',function(){
 document.body.addEventListener('touchstart',initAudio,{once:true});
 document.body.addEventListener('click',initAudio,{once:true});
 
+cargarPersonajeGuardado();
 refrescarChips();
 lucide.createIcons();
 

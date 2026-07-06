@@ -124,7 +124,7 @@ function ganarRonda(pig){
   var elogios=['¡Muy bien','¡Excelente','¡Campeón','¡Genial','¡Súper','¡Increíble']; var el=elogios[rnd(0,elogios.length-1)]+', '+(save.nombre||'Alejo')+'!';
   if(modo==='aventura'){ if(!rondaFallada) primerIntento++;
     actualizarEstrellasHud();
-    hablar(el+' '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+' es '+estado.resultado);
+    hablarAcierto(el+' '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+' es '+estado.resultado);
     setTimeout(avanzarRonda, 1500);
   } else { mostrarCartelLibre(el); }
   revisarLogros(); refrescarChips();
@@ -164,7 +164,7 @@ function mostrarCartelLibre(el){ var signo=estado.tipo==='suma'?'+':'−';
   document.getElementById('cartelTxtL').textContent=el;
   var car=['🐦','🥳','🏆','🙌','🎉']; document.getElementById('mFestejaL').textContent=car[rnd(0,car.length-1)];
   document.getElementById('cartelLibre').classList.add('active');
-  hablar(el+' '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+' es '+estado.resultado); }
+  hablarAcierto(el+' '+estado.a+(estado.tipo==='suma'?' más ':' menos ')+estado.b+' es '+estado.resultado); }
 
 /* ---- Panel de conteo (ayuda) ---- */
 var conteoN=0;

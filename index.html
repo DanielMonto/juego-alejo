@@ -89,6 +89,25 @@
   <div id="confeti"></div>
   <div id="toast"></div>
 
+  <!-- BOTON FLOTANTE VOZ (siempre visible) -->
+  <button id="fabVoz" onclick="togglePanelVoz()"><i data-lucide="mic"></i></button>
+
+  <!-- PANEL DE VOZ -->
+  <div id="panelVoz">
+    <div class="panelVozInner">
+      <div class="panelVozHead">
+        <h2 style="color:#073b5c;text-shadow:none;margin:0"><i data-lucide="mic"></i> Personaje de voz</h2>
+        <button class="cierra" onclick="togglePanelVoz()"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+      </div>
+      <div id="vozLista"></div>
+      <div id="vozTTSCont"></div>
+      <div class="panelVozFoot">
+        <button class="btn small" onclick="toggleVoz()"><i data-lucide="volume-2"></i> On/Off</button>
+        <button class="btn small" onclick="togglePanelVoz()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- CARTEL RONDA (libre) -->
   <div id="cartelLibre" class="cartel">
     <div class="cartelBox">

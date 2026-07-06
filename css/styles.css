@@ -136,4 +136,39 @@ h2 { font-size:clamp(20px,5.5vw,34px); color:#fff; margin:6px 0; text-shadow:2px
 .star-filled { color:#ffab00; fill:#ffab00; }
 .star-empty { color:#ccc; }
 
+/* FAB boton flotante de voz */
+#fabVoz { position:fixed; bottom:16px; right:16px; z-index:50; width:52px; height:52px; border-radius:50%; border:none;
+  background:linear-gradient(135deg,#7c5cff,#5a2ee0); color:#fff; cursor:pointer;
+  box-shadow:0 4px 12px rgba(90,46,224,.45); display:flex; align-items:center; justify-content:center;
+  transition:transform .15s; }
+#fabVoz:active { transform:scale(.9); }
+#fabVoz i { width:24px; height:24px; }
+
+/* Panel de voz */
+#panelVoz { position:fixed; inset:0; z-index:55; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); }
+#panelVoz.active { display:flex; }
+.panelVozInner { background:#fff; border-radius:24px; padding:20px; max-width:380px; width:92vw; max-height:85vh; overflow-y:auto;
+  box-shadow:0 12px 40px rgba(0,0,0,.3); animation:pop .3s ease; }
+.panelVozHead { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; position:relative; }
+.panelVozHead .cierra { position:static; width:32px; height:32px; border-radius:50%; border:none; background:#e11d48; color:#fff; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; }
+.panelVozFoot { display:flex; gap:8px; justify-content:center; margin-top:14px; }
+
+/* Tarjetas de personaje */
+#vozLista { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+.voz-card { display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:16px; cursor:pointer;
+  background:#f4f5f7; border:3px solid transparent; transition:all .15s; }
+.voz-card:active { transform:scale(.97); }
+.voz-card.sel { border-color:#7c5cff; background:#ede9fe; }
+.voz-emoji { font-size:36px; line-height:1; flex-shrink:0; }
+.voz-info { text-align:left; }
+.voz-nombre { font-weight:bold; color:#073b5c; font-size:16px; }
+.voz-desc { font-size:13px; color:#666; }
+
+/* Selector TTS del sistema */
+#vozTTSCont { background:#f4f5f7; border-radius:12px; padding:10px 12px; }
+.voz-tts-label { font-weight:bold; color:#073b5c; font-size:14px; margin-bottom:6px; }
+.voz-tts-select { font-family:inherit; font-size:14px; padding:8px 10px; border-radius:10px; border:2px solid #7c5cff;
+  background:#fff; color:#073b5c; width:100%; }
+
 .oculto { display:none !important; }
