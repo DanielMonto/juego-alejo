@@ -81,36 +81,28 @@ var vozOn=true, vozElegida=null, listaVoces=[];
 function elegirVoz(){ if(!('speechSynthesis' in window)) return; var voces=window.speechSynthesis.getVoices(); if(!voces||!voces.length) return;
   var esp=voces.filter(function(v){ return /es(-|_)|spanish|español/i.test(v.lang+' '+v.name); });
   var otras=voces.filter(function(v){ return esp.indexOf(v)===-1; });
-  // Priorizar voces Google (neurales, suenan naturales) sobre voces locales SAPI
   var pref=['sabina','google español','google es','google spanish','google us spanish',
     'helena','laura','paulina','mónica','monica','esperanza','marisol','female'];
   esp.sort(function(a,b){
     function score(v){
       var n=v.name.toLowerCase();
-      // Google voices get top priority (score 0-3)
-      if(n.indexOf('google')!==-1) return 0;
-      // Network/remote voices next
-      if(!v.localService) return 4;
-      // Then by preference list
-      for(var i=0;i<pref.length;i++){ if(n.indexOf(pref[i])!==-1) return 5+i; }
+      for(var i=0;i<pref.length;i++){ if(n.indexOf(pref[i])!==-1) return i; }
+      if(!v.localService) return 50;
       return 99;
     }
     return score(a)-score(b);
   });
-  listaVoces=esp.concat(otras); if(!vozElegida&&listaVoces.length) vozElegida=listaVoces[0]; }
-
-// Chrome a veces tarda en cargar voces de red — reintentar
-var _vozRetries=0;
-function reintentarVoces(){
-  if(_vozRetries>5) return;
-  var voces=window.speechSynthesis.getVoices();
-  var tieneGoogle=voces.some(function(v){ return /google/i.test(v.name); });
-  if(!tieneGoogle && _vozRetries<5){
-    _vozRetries++;
-    setTimeout(function(){ elegirVoz(); reintentarVoces(); }, 500);
+  listaVoces=esp.concat(otras);
+  // Restaurar voz guardada del usuario
+  var guardada=save.vozNombre;
+  if(guardada){
+    for(var i=0;i<listaVoces.length;i++){
+      if(listaVoces[i].name===guardada){ vozElegida=listaVoces[i]; return; }
+    }
   }
+  // Si no hay guardada, usar la primera del ranking
+  if(!vozElegida&&listaVoces.length) vozElegida=listaVoces[0];
 }
-if('speechSynthesis' in window){ setTimeout(reintentarVoces, 1000); }
 
 function hablar(t){ if(!vozOn) return; try{ if('speechSynthesis' in window){ window.speechSynthesis.cancel(); if(!vozElegida) elegirVoz();
   var p=getPersonaje();
@@ -166,7 +158,7 @@ function renderPanelVoz(){
   else { for(var j=0;j<listaVoces.length;j++){ var v=listaVoces[j], opt=document.createElement('option'); opt.value=j;
     var e=/es(-|_)|spanish|español/i.test(v.lang+' '+v.name); opt.textContent=(e?'ES ':'GL ')+v.name;
     if(vozElegida&&v.name===vozElegida.name) opt.selected=true; sel.appendChild(opt); } }
-  sel.onchange=function(){ var idx=parseInt(sel.value,10); if(!isNaN(idx)&&listaVoces[idx]){ vozElegida=listaVoces[idx]; hablar('Esta es mi nueva voz'); } };
+  sel.onchange=function(){ var idx=parseInt(sel.value,10); if(!isNaN(idx)&&listaVoces[idx]){ vozElegida=listaVoces[idx]; save.vozNombre=vozElegida.name; guardar(); hablar('Esta es mi nueva voz'); } };
   selCont.appendChild(sel);
 }
 
