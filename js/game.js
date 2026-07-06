@@ -280,8 +280,6 @@ function colocarEscena(){
     blocks.push(nuevoBloque(tntP.x+pr*(Math.random()>0.5?1.2:-1.2), tntP.y+pr*0.2, pr*0.7, pr*0.7, 'tnt'));
   }
 
-  // 7. Obstaculos de mundo
-  generarObstaculosMundo();
 }
 
 /* ---- Selector de pájaro ---- */
