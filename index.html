@@ -33,6 +33,20 @@
     <div class="btn-row">
       <button class="btn perso" onclick="abrirPersonalizar()"><i data-lucide="palette"></i> Mi pájaro</button>
     </div>
+    <div id="menuConfig" class="menu-config">
+      <div class="cfg-row">
+        <span class="cfg-label">Operaciones:</span>
+        <button class="cfg-btn" id="cfgSuma" onclick="setTipoOp('suma')">Sumas</button>
+        <button class="cfg-btn" id="cfgResta" onclick="setTipoOp('resta')">Restas</button>
+        <button class="cfg-btn" id="cfgMixto" onclick="setTipoOp('mixto')">Ambas</button>
+      </div>
+      <div class="cfg-row">
+        <span class="cfg-label">Dificultad:</span>
+        <button class="cfg-btn" id="cfgFacil" onclick="setDificultad('facil')">1 digito</button>
+        <button class="cfg-btn" id="cfgNormal" onclick="setDificultad('normal')">2 digitos</button>
+        <button class="cfg-btn" id="cfgDificil" onclick="setDificultad('dificil')">3 digitos</button>
+      </div>
+    </div>
     <div id="menuRecord" class="chip" style="margin-top:10px"><i data-lucide="flame" style="width:16px;height:16px"></i> Mejor racha: <span id="chipRecord">0</span></div>
   </div>
 
@@ -77,6 +91,7 @@
         <div class="chip" id="chipRonda">Ronda 1/5</div>
         <div class="chip" id="chipEstrellas"><i data-lucide="star" style="width:16px;height:16px"></i> <span id="numEstrellas">0</span></div>
       </div>
+      <div id="hudVidas" class="racha-vidas"></div>
       <button class="btn small" id="btnVoz" onclick="toggleVoz()"><i data-lucide="volume-2"></i></button>
     </div>
     <div id="problema">4 + 2 = ?</div>
@@ -133,8 +148,8 @@
         <div class="go-stat"><div class="go-stat-num" id="goNivel">--</div><div class="go-stat-label">Nivel</div></div>
       </div>
       <div class="btn-row">
-        <button class="btn play" onclick="reiniciarRacha()"><i data-lucide="rotate-ccw"></i> Otra vez</button>
-        <button class="btn small" onclick="salirRacha()"><i data-lucide="home"></i> Menú</button>
+        <button class="btn play" onclick="reiniciarDesdeGameOver()"><i data-lucide="rotate-ccw"></i> Otra vez</button>
+        <button class="btn small" onclick="salirDesdeGameOver()"><i data-lucide="home"></i> Menú</button>
       </div>
     </div>
   </div>

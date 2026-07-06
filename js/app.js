@@ -13,6 +13,7 @@ document.body.addEventListener('click',initAudio,{once:true});
 
 cargarPersonajeGuardado();
 refrescarChips();
+refrescarCfgBtns();
 lucide.createIcons();
 
 // PWA — registrar service worker + auto-update

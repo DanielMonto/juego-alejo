@@ -75,6 +75,7 @@ h2 { font-size:clamp(20px,5.5vw,34px); color:#fff; margin:6px 0; text-shadow:2px
 #hud { position:absolute; top:0; left:0; right:0; display:flex; align-items:center; justify-content:space-between; padding:9px 11px; z-index:5; pointer-events:none; }
 #hud .btn, #hud .chip { pointer-events:auto; }
 #hudCentro { display:flex; gap:8px; align-items:center; }
+#hudVidas { display:flex; gap:2px; pointer-events:none; }
 #problema { position:absolute; top:56px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,.93);
   border-radius:18px; padding:7px 24px; z-index:5; font-size:clamp(28px,7.5vw,54px); font-weight:bold; color:#073b5c;
   box-shadow:0 5px 0 rgba(0,0,0,.15); white-space:nowrap; }
@@ -173,6 +174,16 @@ h2 { font-size:clamp(20px,5.5vw,34px); color:#fff; margin:6px 0; text-shadow:2px
 
 /* Boton racha */
 .btn.racha { background:linear-gradient(#ff5a1f,#e02a1f); }
+
+/* Config dificultad en menu */
+.menu-config { background:rgba(255,255,255,.85); border-radius:16px; padding:10px 14px; margin-top:10px;
+  box-shadow:0 4px 0 rgba(0,0,0,.12); max-width:380px; }
+.cfg-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:center; margin:4px 0; }
+.cfg-label { font-weight:bold; color:#073b5c; font-size:14px; }
+.cfg-btn { border:2px solid #ccc; border-radius:10px; padding:5px 10px; font-family:inherit; font-size:13px;
+  font-weight:bold; cursor:pointer; background:#f4f5f7; color:#073b5c; transition:all .1s; }
+.cfg-btn:active { transform:scale(.95); }
+.cfg-btn.sel { border-color:#7c5cff; background:#ede9fe; color:#5a2ee0; }
 
 /* HUD racha (in-game) — fila compacta */
 #hudRacha { position:absolute; top:46px; left:0; right:0; z-index:6;

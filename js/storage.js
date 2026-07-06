@@ -7,7 +7,8 @@ var saveDefault={
   nombre:'ALEJO', colorPajaro:'#d62828',
   copas:0, copasPerfectas:0, aciertosTotales:0, rachaMax:0,
   mundoDesbloqueado:0, retos:{}, pajaros:['rojo'], logros:[], tntUsado:false, mundosFin:[],
-  personaje:'normal', vozNombre:null
+  personaje:'normal', vozNombre:null,
+  dificultad:'facil', tipoOp:'mixto'
 };
 var save=cargar();
 
